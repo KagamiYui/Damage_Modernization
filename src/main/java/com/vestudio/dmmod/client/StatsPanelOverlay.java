@@ -301,17 +301,16 @@ public final class StatsPanelOverlay {
      *
      * <h2>显示格式</h2>
      * <pre>
-     *   攻击力   结果（基础值 + 加成）
+     *   攻击力   结果（基础攻击力 + 非基础攻击力）
      * </pre>
-     * 加成带 {@code +} 号，表示这是在基础值之上「增加」的部分。
-     * 没有加成时省略括号，只显示结果。
      *
-     * <h2>加成以点数呈现</h2>
-     * 百分比是「率」而不是点数，玩家真正关心的是它最终贡献了多少点攻击力，
-     * 因此把百分比<b>换算成点数</b>后并入加成：
+     * <h2>基础攻击力包含武器</h2>
+     * 武器的攻击伤害会被换算并计入基础攻击力（空手 1、钻石剑 7），
+     * 因此加号<b>前面</b>的是手持当前武器后的基础攻击力，
+     * 加号<b>后面</b>才是非基础的那部分（百分比提升与固定攻击力带来的点数）：
      * <pre>
-     *   结果 = 攻击力总值 × (1 + 百分比提升) + 固定攻击力
-     *   加成 = 结果 − 基础值
+     *   结果 = 基础攻击力 × (1 + 百分比提升) + 固定攻击力
+     *   非基础攻击力 = 结果 − 基础攻击力
      * </pre>
      *
      * @param rows   结果列表
@@ -325,11 +324,9 @@ public final class StatsPanelOverlay {
             return;
         }
 
-        // 基础值：武器/装备加成以修饰符形式存在，因此这里是不含加成的基准。
-        double base = player.getAttributeBaseValue(baseAttr);
-
-        // 攻击力区总值的计算基准：属性总值（基础值 + 武器等修饰符）。
-        double attackPower = player.getAttributeValue(baseAttr);
+        // 基础攻击力：属性总值即包含武器贡献（空手 1、钻石剑 7），
+        // 注意不是 getAttributeBaseValue()——那只是不含武器的基准 1。
+        double baseAttackPower = player.getAttributeValue(baseAttr);
 
         // 百分比与固定加值；属性缺失时按 0 处理，不影响其余计算。
         double percent = player.getAttribute(DMAttributes.ATTACK_POWER_PERCENT) == null
@@ -339,17 +336,17 @@ public final class StatsPanelOverlay {
                 ? 0.0D
                 : player.getAttributeValue(DMAttributes.ATTACK_POWER_FLAT);
 
-        // 该乘区最终点数 = 攻击力总值 × (1 + 百分比) + 固定值。
-        double zoneTotal = attackPower * (1.0D + percent) + flat;
+        // 该乘区最终点数 = 基础攻击力 × (1 + 百分比) + 固定值。
+        double zoneTotal = baseAttackPower * (1.0D + percent) + flat;
 
-        // 加成 = 结果 − 基础值。
-        double zoneBonus = zoneTotal - base;
+        // 非基础攻击力 = 结果 − 基础攻击力（百分比换算出的点数 + 固定值）。
+        double nonBase = zoneTotal - baseAttackPower;
 
         String name = Component.translatable("gui." + DamageModernization.MODID + ".attack_power_zone")
                 .getString();
 
-        // 排版为「结果（基础值 + 加成）」；无加成时省略括号。
-        String value = StatFormat.attackPowerValue(zoneTotal, base, zoneBonus);
+        // 排版为「结果（基础攻击力 + 非基础攻击力）」；无非基础部分时省略括号。
+        String value = StatFormat.attackPowerValue(zoneTotal, baseAttackPower, nonBase);
 
         rows.add(new Row(name, value));
     }
