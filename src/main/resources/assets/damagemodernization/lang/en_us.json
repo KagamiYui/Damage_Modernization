@@ -1,0 +1,46 @@
+{
+  "_comment": "Damage_Modernization —— 四乘区伤害系统",
+
+  "attribute.damagemodernization.base_attack_power": "Base Attack Power",
+  "attribute.damagemodernization.attack_power_percent": "Attack Power Bonus",
+  "attribute.damagemodernization.attack_power_flat": "Flat Attack Power",
+  "attribute.damagemodernization.damage_amplifier": "Damage Amplification",
+  "attribute.damagemodernization.damage_multiplier": "Damage Multiplier",
+  "attribute.damagemodernization.crit_chance": "Critical Chance",
+  "attribute.damagemodernization.crit_damage": "Critical Damage",
+
+  "damagemodernization.value.percent": "%s%%",
+
+  "damagemodernization.configuration.title": "Damage_Modernization Configs",
+  "damagemodernization.configuration.section.damagemodernization.common.toml": "Damage_Modernization Configs",
+  "damagemodernization.configuration.section.damagemodernization.common.toml.title": "Damage_Modernization Configs",
+
+  "damagemodernization.configuration.enableFourZoneModel": "Enable Four-Zone Model",
+  "damagemodernization.configuration.applyZonesToEnvironmentalDamage": "Apply Zones to Environmental Damage",
+
+  "damagemodernization.configuration.attackPowerZone": "Attack Power Zone",
+  "damagemodernization.configuration.attackPowerZone.enabled": "Enabled",
+  "damagemodernization.configuration.attackPowerZone.scale": "Global Scale",
+  "damagemodernization.configuration.attackPowerZone.formula": "Formula Mode",
+
+  "damagemodernization.configuration.damageAmplifierZone": "Damage Amplifier Zone (Additive)",
+  "damagemodernization.configuration.damageAmplifierZone.enabled": "Enabled",
+  "damagemodernization.configuration.damageAmplifierZone.globalBonus": "Global Bonus",
+
+  "damagemodernization.configuration.damageMultiplierZone": "Damage Multiplier Zone (Multiplicative)",
+  "damagemodernization.configuration.damageMultiplierZone.enabled": "Enabled",
+  "damagemodernization.configuration.damageMultiplierZone.globalFactor": "Global Factor",
+
+  "damagemodernization.configuration.critZone": "Critical Zone",
+  "damagemodernization.configuration.critZone.enabled": "Enabled",
+  "damagemodernization.configuration.critZone.globalDamageBonus": "Global Crit Damage Bonus",
+
+  "damagemodernization.configuration.defaults": "Attribute Defaults",
+  "damagemodernization.configuration.defaults.critChance": "Default Crit Chance",
+  "damagemodernization.configuration.defaults.critDamage": "Default Crit Damage",
+  "damagemodernization.configuration.defaults.damageMultiplier": "Default Damage Multiplier",
+
+  "damagemodernization.configuration.debug": "Debug",
+  "damagemodernization.configuration.debug.logZoneCalculation": "Log Zone Calculation",
+  "damagemodernization.configuration.debug.logZoneRegistration": "Log Zone Registration"
+}

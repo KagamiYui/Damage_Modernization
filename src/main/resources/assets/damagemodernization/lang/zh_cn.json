@@ -1,0 +1,46 @@
+{
+  "_comment": "Damage_Modernization —— 四乘区伤害系统（简体中文）",
+
+  "attribute.damagemodernization.base_attack_power": "基础攻击力",
+  "attribute.damagemodernization.attack_power_percent": "攻击力百分比提升",
+  "attribute.damagemodernization.attack_power_flat": "固定攻击力",
+  "attribute.damagemodernization.damage_amplifier": "伤害提升",
+  "attribute.damagemodernization.damage_multiplier": "伤害倍率",
+  "attribute.damagemodernization.crit_chance": "暴击率",
+  "attribute.damagemodernization.crit_damage": "暴击伤害",
+
+  "damagemodernization.value.percent": "%s%%",
+
+  "damagemodernization.configuration.title": "伤害现代化 配置",
+  "damagemodernization.configuration.section.damagemodernization.common.toml": "伤害现代化 配置",
+  "damagemodernization.configuration.section.damagemodernization.common.toml.title": "伤害现代化 配置",
+
+  "damagemodernization.configuration.enableFourZoneModel": "启用四乘区模型",
+  "damagemodernization.configuration.applyZonesToEnvironmentalDamage": "环境伤害也走乘区",
+
+  "damagemodernization.configuration.attackPowerZone": "攻击力区",
+  "damagemodernization.configuration.attackPowerZone.enabled": "启用",
+  "damagemodernization.configuration.attackPowerZone.scale": "全局缩放系数",
+  "damagemodernization.configuration.attackPowerZone.formula": "合成形态",
+
+  "damagemodernization.configuration.damageAmplifierZone": "伤害提升区（加算）",
+  "damagemodernization.configuration.damageAmplifierZone.enabled": "启用",
+  "damagemodernization.configuration.damageAmplifierZone.globalBonus": "全局加成",
+
+  "damagemodernization.configuration.damageMultiplierZone": "伤害倍率区（乘算）",
+  "damagemodernization.configuration.damageMultiplierZone.enabled": "启用",
+  "damagemodernization.configuration.damageMultiplierZone.globalFactor": "全局系数",
+
+  "damagemodernization.configuration.critZone": "暴击区",
+  "damagemodernization.configuration.critZone.enabled": "启用",
+  "damagemodernization.configuration.critZone.globalDamageBonus": "全局暴击伤害加成",
+
+  "damagemodernization.configuration.defaults": "属性默认值",
+  "damagemodernization.configuration.defaults.critChance": "默认暴击率",
+  "damagemodernization.configuration.defaults.critDamage": "默认暴击伤害",
+  "damagemodernization.configuration.defaults.damageMultiplier": "默认伤害倍率",
+
+  "damagemodernization.configuration.debug": "调试",
+  "damagemodernization.configuration.debug.logZoneCalculation": "记录伤害计算日志",
+  "damagemodernization.configuration.debug.logZoneRegistration": "记录乘区注册日志"
+}
