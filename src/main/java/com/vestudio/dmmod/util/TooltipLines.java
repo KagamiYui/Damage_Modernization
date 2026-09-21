@@ -71,4 +71,49 @@ public final class TooltipLines {
         }
         return false;
     }
+
+    /**
+     * 从一行 tooltip 文本中解析出数值。
+     *
+     * <p>原版属性行的最终文本形如 {@code " 7 Attack Damage"}（空格 + 数值 + 名称），
+     * 本方法提取其中的第一个数值。
+     *
+     * <p>之所以要解析而不是直接读属性：
+     * 原版显示的是<b>已含实体基础值的总和</b>（{@code 修饰符 + 实体基础值}），
+     * 该总和无法从物品自身直接取得，只能从这一行的文本还原。
+     *
+     * @param line 行组件
+     * @return 解析出的数值；无法解析时返回 {@link Double#NaN}
+     */
+    public static double parseValue(Component line) {
+        String text = line.getString();
+
+        int i = 0;
+        int length = text.length();
+
+        // 跳过前导空格
+        while (i < length && text.charAt(i) == ' ') {
+            i++;
+        }
+
+        int start = i;
+        while (i < length) {
+            char c = text.charAt(i);
+            if ((c >= '0' && c <= '9') || c == '.' || c == '-' || c == '+') {
+                i++;
+            } else {
+                break;
+            }
+        }
+
+        if (i == start) {
+            return Double.NaN;
+        }
+
+        try {
+            return Double.parseDouble(text.substring(start, i));
+        } catch (NumberFormatException e) {
+            return Double.NaN;
+        }
+    }
 }

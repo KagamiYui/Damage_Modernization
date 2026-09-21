@@ -10,48 +10,48 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.Holder;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.ai.attributes.Attribute;
-import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.component.ItemAttributeModifiers;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.player.ItemTooltipEvent;
 
 /**
- * 在武器 tooltip 上显示这把武器<b>增加的基础攻击力</b>。
+ * 把武器 tooltip 上原版的「攻击伤害」行，就地替换为「基础攻击力」。
  *
  * <h2>显示效果</h2>
  * <pre>
- *   +6 基础攻击力
+ *   基础攻击力   7
  * </pre>
- * 数值是武器的攻击力修饰符本身（即它「增加」了多少），
- * <b>不是</b>含玩家自身基础值的总和。例如钻石剑会显示 {@code +6 基础攻击力}，
- * 含义是「装备后基础攻击力 +6」。
+ * 数值沿用原版那一行的数值（{@code 武器修饰符 + 玩家自身基础值}），
+ * 因此<b>数字与改动前完全相同</b>，只是属性名称变成了基础攻击力。
  *
- * <h2>为什么不改原版那一行</h2>
- * 原版仍会照常显示它自己的「攻击伤害」行（那是原版属性系统的真实内容）。
- * 本 mod 只是<b>额外增加一行</b>，说明这把武器折算成基础攻击力时增加多少，
- * 因此不会干扰其他模组或原版对 {@code attack_damage} 的读取与显示。
+ * <h2>替换而非追加</h2>
+ * 本 mod 已把该数值的语义重写为基础攻击力，继续显示「攻击伤害」会与实际语义不符，
+ * 因此直接<b>占据原行的位置</b>，避免同一个数值出现两行。
  *
- * <h2>配色</h2>
- * 沿用属性系统对「正向修饰符」的配色（蓝），与原版 {@code +N} 行的观感一致。
+ * <h2>颜色</h2>
+ * 与其它属性行保持一致，使用原版的深绿（{@link ChatFormatting#DARK_GREEN}）。
+ *
+ * <h2>定位方式</h2>
+ * 原版该行由 {@code attribute.modifier.equals.0} 生成，
+ * 且结构为 {@code literal(" ").append(translatable)}，
+ * 可翻译内容位于<b>兄弟节点</b>而非顶层，因此定位时必须递归查找。
+ * 找不到时<b>不做任何改动</b>，避免误删其他模组的内容。
  */
 @EventBusSubscriber(modid = DamageModernization.MODID, value = Dist.CLIENT)
 public final class AttackPowerTooltip {
 
-    /** 「+N 名称」形式的翻译键，原版用于正向修饰符。 */
-    private static final String PLUS_LINE_KEY = "attribute.modifier.plus.0";
+    /** 原版「基础数值」行的翻译键。 */
+    private static final String BASE_LINE_KEY = "attribute.modifier.equals.0";
 
     private AttackPowerTooltip() {
     }
 
     /**
-     * 处理物品 tooltip，追加基础攻击力贡献行。
+     * 处理物品 tooltip，就地替换攻击伤害行。
      *
      * @param event tooltip 事件，其列表可修改
      */
@@ -62,59 +62,61 @@ public final class AttackPowerTooltip {
             return;
         }
 
-        // 该武器增加的基础攻击力 = 它在主手上的攻击力修饰符数值。
-        double baseAttackPowerBonus = mainHandAttackDamage(stack);
-        if (baseAttackPowerBonus == 0.0D) {
-            return;
-        }
-
         List<Component> lines = event.getToolTip();
 
-        // 幂等保护：已经添加过同样内容时不重复添加。
-        if (TooltipLines.anyContains(lines, DMAttributes.BASE_ATTACK_POWER.value().getDescriptionId())) {
+        // 定位原版「攻击伤害」那一行。
+        int index = indexOfVanillaBaseLine(lines);
+        if (index < 0) {
             return;
         }
 
-        lines.add(buildLine(baseAttackPowerBonus, event.getFlags()));
+        Component vanillaLine = lines.get(index);
+
+        // 沿用原行的数值，保证数字不变。
+        double value = TooltipLines.parseValue(vanillaLine);
+        if (Double.isNaN(value)) {
+            // 解析不出数值时保持原样，避免显示成空白。
+            return;
+        }
+
+        lines.set(index, buildLine(value, event.getFlags()));
     }
 
     /**
-     * 读取物品在主手上的攻击力修饰符数值。
+     * 找出原版「基础数值」行的下标。
      *
-     * @param stack 物品
-     * @return 修饰符数值；没有则返回 0
+     * @param lines tooltip 行列表
+     * @return 下标，或 -1
      */
-    private static double mainHandAttackDamage(ItemStack stack) {
-        ItemAttributeModifiers modifiers = stack.getAttributeModifiers();
-        for (ItemAttributeModifiers.Entry entry : modifiers.modifiers()) {
-            if (entry.slot().test(EquipmentSlot.MAINHAND)
-                    && entry.attribute().equals(Attributes.ATTACK_DAMAGE)) {
-                return entry.modifier().amount();
+    private static int indexOfVanillaBaseLine(List<Component> lines) {
+        for (int i = 0; i < lines.size(); i++) {
+            if (TooltipLines.containsKey(lines.get(i), BASE_LINE_KEY)) {
+                return i;
             }
         }
-        return 0.0D;
+        return -1;
     }
 
     /**
-     * 构造「+N 基础攻击力」行。
+     * 构造「基础攻击力」行。
      *
-     * <p>数值经由基础攻击力属性自身的显示逻辑渲染，
-     * 配色沿用属性系统对正向修饰符的配色。
+     * <p>结构与原版一致（前导空格 + 数值 + 属性名），
+     * 颜色沿用原版的深绿，使观感与其余属性行统一。
      *
-     * @param value  增加的基础攻击力
-     * @param flag   tooltip 标记
+     * @param value 显示数值
+     * @param flag  tooltip 标记
      * @return 该行的组件
      */
     private static Component buildLine(double value, TooltipFlag flag) {
         Holder<Attribute> attribute = DMAttributes.BASE_ATTACK_POWER;
 
-        // 显示数值本身（传 null 运算类型），与属性面板保持一致。
+        // 传 null 表示显示数值本身，与属性面板保持一致。
         Component valueText = attribute.value().toValueComponent(null, value, flag);
 
-        MutableComponent text = Component.translatable(PLUS_LINE_KEY,
+        MutableComponent text = Component.translatable(BASE_LINE_KEY,
                 valueText,
                 Component.translatable(attribute.value().getDescriptionId()));
 
-        return text.withStyle(ChatFormatting.BLUE);
+        return Component.literal(" ").append(text).withStyle(ChatFormatting.DARK_GREEN);
     }
 }
