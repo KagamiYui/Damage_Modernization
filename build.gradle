@@ -61,6 +61,8 @@ neoForge {
         server {
             server()
             programArgument '--nogui'
+            // 临时：诊断运行时使用独立目录，避开被占用的 run/world
+            gameDirectory = project.file('run-diag')
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
 
