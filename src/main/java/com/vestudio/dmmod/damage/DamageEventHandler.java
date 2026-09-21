@@ -175,6 +175,34 @@ public final class DamageEventHandler {
     }
 
     /**
+     * 服务端每 tick 刷新所有在线玩家的基础攻击力。
+     *
+     * <h2>为什么不能只依赖事件</h2>
+     * 镜像（把原版攻击伤害的修饰符搬到基础攻击力上）原本只在
+     * 「伤害结算」与「装备变化事件」时更新。前者意味着<b>必须打中目标</b>
+     * 才会刷新，后者在装备属性结算流程中触发、时机偏早，
+     * 都可能让 {@code base_attack_power} 停留在旧值——
+     * 属性面板因此要等到「换物品」或「攻击过」之后才更新。
+     *
+     * <p>改由服务端每 tick 权威刷新后，数值始终跟随当前武器，
+     * 再经原有的属性同步下发到客户端，面板即可实时反映。
+     *
+     * <p>刷新是幂等的（先按前缀清除旧镜像再重建），因此每 tick 重复调用安全。
+     *
+     * @param event 服务端 tick 事件
+     */
+    @SubscribeEvent
+    public static void onServerTick(net.neoforged.neoforge.event.tick.ServerTickEvent.Post event) {
+        if (!DamagePipeline.isModelEnabled()) {
+            return;
+        }
+
+        for (net.minecraft.server.level.ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
+            BaseAttackPowerConverter.resolveBaseAttackPower(player);
+        }
+    }
+
+    /**
      * 实体死亡时清理缓存，避免内存泄漏。
      *
      * @param event 死亡事件

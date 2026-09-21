@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.vestudio.dmmod.DamageModernization;
 import com.vestudio.dmmod.api.DMAttributes;
+import com.vestudio.dmmod.util.StatFormat;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
@@ -15,7 +16,6 @@ import net.minecraft.core.Holder;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.ai.attributes.Attribute;
-import net.minecraft.world.item.TooltipFlag;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -171,14 +171,18 @@ public final class StatsPanelOverlay {
     private static List<Row> collectRows(LocalPlayer player, Font font) {
         List<Row> rows = new ArrayList<>();
 
-        // 攻击力区：三个属性同属一个乘区，合并为一行，
-        // 避免同一个乘区的多个「提升」被拆成多行显示。
+        // 攻击力区：三个属性同属一个乘区，合并为一行。
+        // 有明确的基础值，因此显示「结果（基础值 + 加成）」。
         addAttackPowerZoneRow(rows, player);
 
-        addRow(rows, player, DMAttributes.DAMAGE_AMPLIFIER);
-        addRow(rows, player, DMAttributes.DAMAGE_MULTIPLIER);
-        addRow(rows, player, DMAttributes.CRIT_CHANCE);
-        addRow(rows, player, DMAttributes.CRIT_DAMAGE);
+        // 其余乘区没有分开的基础值，只显示「结果（增加量）」；
+        // 没有增加量时连括号一并省略。
+        addBonusOnlyRow(rows, player, DMAttributes.DAMAGE_AMPLIFIER);
+        addBonusOnlyRow(rows, player, DMAttributes.DAMAGE_MULTIPLIER);
+        addBonusOnlyRow(rows, player, DMAttributes.CRIT_CHANCE);
+
+        // 暴击伤害：基础值与结果都在同一属性上，同样按「结果（增加量）」处理。
+        addBonusOnlyRow(rows, player, DMAttributes.CRIT_DAMAGE);
 
         return rows;
     }
@@ -191,23 +195,18 @@ public final class StatsPanelOverlay {
      *
      * <h2>显示格式</h2>
      * <pre>
-     *   攻击力   总值（基础值+提升值）
+     *   攻击力   结果（基础值 + 加成）
      * </pre>
+     * 加成带 {@code +} 号，表示这是在基础值之上「增加」的部分。
+     * 没有加成时省略括号，只显示结果。
      *
-     * <h2>关键：提升值显示为换算后的点数</h2>
-     * 百分比是「率」而不是点数，玩家真正关心的是它最终贡献了多少点攻击力。
-     * 因此这里不显示百分比本身，而是把它<b>换算成点数</b>后并入提升值：
+     * <h2>加成以点数呈现</h2>
+     * 百分比是「率」而不是点数，玩家真正关心的是它最终贡献了多少点攻击力，
+     * 因此把百分比<b>换算成点数</b>后并入加成：
      * <pre>
-     *   总值   = 基础攻击力 × (1 + 百分比提升) + 固定攻击力
-     *   提升值 = 总值 − 基础攻击力
-     *          = 基础攻击力 × 百分比提升 + 固定攻击力
+     *   结果 = 攻击力总值 × (1 + 百分比提升) + 固定攻击力
+     *   加成 = 结果 − 基础值
      * </pre>
-     * 即提升值 = 「百分比换算出的点数」+「固定攻击力」，
-     * 且始终满足 {@code 总值 = 基础值 + 提升值}，不会出现单位混加。
-     *
-     * <h2>与其他行的差异</h2>
-     * 其余乘区（伤害提升、伤害倍率、暴击率、暴击伤害）各自只对应一个属性，
-     * 不存在跨属性合并的问题，因此直接沿用属性自身的显示格式。
      *
      * @param rows   结果列表
      * @param player 本地玩家
@@ -237,103 +236,50 @@ public final class StatsPanelOverlay {
         // 该乘区最终点数 = 攻击力总值 × (1 + 百分比) + 固定值。
         double zoneTotal = attackPower * (1.0D + percent) + flat;
 
-        // 提升值 = 总值 − 基础值，保证 总值 = 基础值 + 提升值 恒成立。
+        // 加成 = 结果 − 基础值。
         double zoneBonus = zoneTotal - base;
 
         String name = Component.translatable("gui." + DamageModernization.MODID + ".attack_power_zone")
                 .getString();
 
-        // 统一以「点」为单位显示（用基础攻击力属性做格式化依据），
-        // 因此提升值呈现的是换算后的固定值，而不是百分比。
-        String value = render(baseAttr, zoneTotal)
-                + "（" + render(baseAttr, base)
-                + "+" + renderSigned(baseAttr, zoneBonus) + "）";
+        // 排版为「结果（基础值 + 加成）」；无加成时省略括号。
+        String value = StatFormat.attackPowerValue(zoneTotal, base, zoneBonus);
 
         rows.add(new Row(name, value));
     }
 
     /**
-     * 把单个属性格式化为一行。
+     * 生成「只显示增加量」的乘区行。
      *
-     * <p>若该属性不存在于玩家身上（例如被其他模组移除了注入），则跳过，
-     * 而不是显示 0 造成误解。
+     * <p>适用于没有独立基础值的乘区（伤害提升、伤害倍率、暴击率、暴击伤害）：
+     * <pre>
+     *   结果（增加量）
+     * </pre>
+     * 增加量以百分比呈现且不带 {@code +} 号；<b>数值没有变动时省略括号</b>。
      *
      * @param rows      结果列表
      * @param player    本地玩家
      * @param attribute 属性
      */
-    private static void addRow(List<Row> rows, LocalPlayer player, Holder<Attribute> attribute) {
+    private static void addBonusOnlyRow(List<Row> rows,
+                                        LocalPlayer player,
+                                        Holder<Attribute> attribute) {
         if (player.getAttribute(attribute) == null) {
             return;
         }
 
         double total = player.getAttributeValue(attribute);
-        double base = player.getAttributeBaseValue(attribute);
-        double bonus = total - base;
+        // 以属性默认值为基准判断「是否变动」：
+        // 例如伤害倍率默认 1.0、暴击率默认 0.0，没有加成时就不显示括号。
+        double baseline = attribute.value().getDefaultValue();
+        double delta = total - baseline;
 
         String name = Component.translatable(attribute.value().getDescriptionId()).getString();
-        String valueText = format(attribute, total, base, bonus);
 
-        rows.add(new Row(name, valueText));
-    }
+        // 排版为「结果（增加量）」；无变动时省略括号。
+        String value = StatFormat.bonusOnlyValue(attribute, total, delta);
 
-    /**
-     * 渲染一个带符号的数值。
-     *
-     * <p>正数补 {@code +}，负数由格式化器自带 {@code -}。
-     * 由于行内固定使用 {@code +} 作为分隔符，
-     * 当数值为负时必须去掉格式化器产生的负号，
-     * 否则会显示成 {@code +-0.5} 这样的双符号。
-     *
-     * @param attribute 属性（决定数值的显示格式）
-     * @param value     数值
-     * @return 带符号的文本
-     */
-    private static String renderSigned(Holder<Attribute> attribute, double value) {
-        String text = render(attribute, value);
-
-        // 统一交给分隔符表达正负，避免出现 "+-" 或 "--"。
-        // 去掉负号同时也把极小负数四舍五入产生的 "-0" 归一为 "0"。
-        if (text.startsWith("-")) {
-            return text.substring(1);
-        }
-        return text;
-    }
-
-    /**
-     * 按「总值（基础值+提升值）」格式生成文本。
-     *
-     * <p>三处数值都经由属性自身的显示逻辑渲染，
-     * 因此百分比类属性会自动带上 {@code %}，与 tooltip 保持一致。
-     *
-     * <p>提升值仅在非零时显示正负号，零值显示为 {@code +0} 以保持格式完整。
-     *
-     * @param attribute 属性（用于调用其格式化逻辑）
-     * @param total     总值
-     * @param base      基础值
-     * @param bonus     提升值
-     * @return 格式化后的文本
-     */
-    private static String format(Holder<Attribute> attribute, double total, double base, double bonus) {
-        return render(attribute, total)
-                + "（" + render(attribute, base)
-                + "+" + renderSigned(attribute, bonus) + "）";
-    }
-
-    /**
-     * 调用属性自身的显示逻辑渲染一个数值。
-     *
-     * <p>传 {@code null} 运算类型，表示「显示数值本身」而非修饰符，
-     * 这正是属性面板需要的语义。
-     *
-     * @param attribute 属性
-     * @param value     数值
-     * @return 渲染后的字符串
-     */
-    private static String render(Holder<Attribute> attribute, double value) {
-        return attribute.value()
-                .toValueComponent(null, value, TooltipFlag.NORMAL)
-                .getString();
+        rows.add(new Row(name, value));
     }
 
     /**
