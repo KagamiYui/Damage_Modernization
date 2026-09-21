@@ -1,6 +1,7 @@
 package com.vestudio.dmmod.client;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import com.vestudio.dmmod.DamageModernization;
@@ -91,6 +92,8 @@ public final class StatsPanelOverlay {
      */
     private static void render(GuiGraphics graphics) {
         if (!StatsPanelKeybind.isVisible()) {
+            // 面板关闭时释放缓存，下次打开重新取值。
+            clearCache();
             return;
         }
 
@@ -99,27 +102,22 @@ public final class StatsPanelOverlay {
         // 不在游戏内（例如主菜单、加载中）或玩家尚未就绪时不绘制。
         LocalPlayer player = minecraft.player;
         if (player == null || minecraft.options.hideGui) {
+            clearCache();
+            return;
+        }
+
+        CachedPanel panel = getPanel(player);
+        if (panel == null) {
             return;
         }
 
         Font font = minecraft.font;
-        List<Row> rows = collectRows(player, font);
-        if (rows.isEmpty()) {
-            return;
-        }
-
+        List<Row> rows = panel.rows();
         Component title = Component.translatable("gui." + DamageModernization.MODID + ".stats_panel.title");
 
-        // ---- 计算面板尺寸 ----
-        int nameWidth = 0;
-        int valueWidth = 0;
-        for (Row row : rows) {
-            nameWidth = Math.max(nameWidth, font.width(row.name()));
-            valueWidth = Math.max(valueWidth, font.width(row.value()));
-        }
-
+        // ---- 面板尺寸（沿用缓存中量好的宽度，避免每帧重新测量）----
         int titleWidth = font.width(title);
-        int contentWidth = Math.max(nameWidth + COLUMN_GAP + valueWidth, titleWidth);
+        int contentWidth = Math.max(panel.nameWidth() + COLUMN_GAP + panel.valueWidth(), titleWidth);
 
         int panelWidth = contentWidth + PADDING * 2;
         int panelHeight = PADDING * 2 + LINE_HEIGHT * 2 + rows.size() * LINE_HEIGHT;
@@ -146,12 +144,126 @@ public final class StatsPanelOverlay {
         cursorY += 2;
 
         // 属性行：名称左对齐，数值右对齐，保证数值列整齐。
-        int valueColumnX = x + panelWidth - PADDING - valueWidth;
+        int valueColumnX = x + panelWidth - PADDING - panel.valueWidth();
         for (Row row : rows) {
             graphics.drawString(font, row.name(), x + PADDING, cursorY, COLOR_NAME, true);
             graphics.drawString(font, row.value(), valueColumnX, cursorY, COLOR_VALUE, true);
             cursorY += LINE_HEIGHT;
         }
+    }
+
+    // ==================================================================
+    // 面板缓存
+    // ==================================================================
+
+    /**
+     * 缓存的面板内容。
+     *
+     * @param rows       属性行
+     * @param values     构成这些行的原始数值，用于判断是否需要重建
+     * @param nameWidth  名称列最大宽度
+     * @param valueWidth 数值列最大宽度
+     */
+    private record CachedPanel(List<Row> rows, double[] values, int nameWidth, int valueWidth) {
+    }
+
+    /** 上一次构建的面板；为 null 表示尚无缓存。 */
+    private static CachedPanel cachedPanel = null;
+
+    /** 帧计数，用于把「取值比较」也降低到每若干帧一次。 */
+    private static int frameCounter = 0;
+
+    /**
+     * 取值比较的间隔帧数。
+     *
+     * <p>数值最多每秒（服务端刷新间隔）变化一次，
+     * 因此无需每帧都去读取属性；每 5 帧比较一次，
+     * 即使在 60 FPS 下延迟也不足 0.1 秒，肉眼无法察觉。
+     */
+    private static final int VALUES_CHECK_INTERVAL_FRAMES = 5;
+
+    /**
+     * 取得当前应显示的面板内容（带缓存）。
+     *
+     * <h2>为什么需要缓存</h2>
+     * GUI 每帧都会重绘。若每帧都重新读取属性、重新格式化文本并重新测量宽度，
+     * 在数值根本没变的情况下全是白做的开销。
+     *
+     * <p>因此这里先取出构成面板的<b>原始数值</b>做比较：
+     * 与上次完全一致时直接复用缓存的排版结果，
+     * 只有确实变化了才重建行与宽度。
+     *
+     * @param player 本地玩家
+     * @return 面板内容；无内容可显示时返回 null
+     */
+    private static CachedPanel getPanel(LocalPlayer player) {
+        // 上一个面板存在时：每若干帧比较一次数值，未变化就直接复用。
+        if (cachedPanel != null && frameCounter++ % VALUES_CHECK_INTERVAL_FRAMES != 0) {
+            return cachedPanel;
+        }
+
+        double[] values = readValues(player);
+
+        if (cachedPanel != null && Arrays.equals(cachedPanel.values(), values)) {
+            // 数值没变：不重建、不重新排版、不重新测量。
+            return cachedPanel;
+        }
+
+        List<Row> rows = new ArrayList<>();
+        buildRows(rows, player);
+        if (rows.isEmpty()) {
+            cachedPanel = null;
+            return null;
+        }
+
+        Minecraft minecraft = Minecraft.getInstance();
+        Font font = minecraft.font;
+        int nameWidth = 0;
+        int valueWidth = 0;
+        for (Row row : rows) {
+            nameWidth = Math.max(nameWidth, font.width(row.name()));
+            valueWidth = Math.max(valueWidth, font.width(row.value()));
+        }
+
+        cachedPanel = new CachedPanel(rows, values, nameWidth, valueWidth);
+        return cachedPanel;
+    }
+
+    /**
+     * 读取构成面板的全部原始数值。
+     *
+     * <p>只取值、不排版，因此非常轻量，适合频繁比较。
+     *
+     * @param player 本地玩家
+     * @return 数值数组
+     */
+    private static double[] readValues(LocalPlayer player) {
+        return new double[] {
+                attributeValue(player, DMAttributes.BASE_ATTACK_POWER),
+                player.getAttributeBaseValue(DMAttributes.BASE_ATTACK_POWER),
+                attributeValue(player, DMAttributes.ATTACK_POWER_PERCENT),
+                attributeValue(player, DMAttributes.ATTACK_POWER_FLAT),
+                attributeValue(player, DMAttributes.DAMAGE_AMPLIFIER),
+                attributeValue(player, DMAttributes.DAMAGE_MULTIPLIER),
+                attributeValue(player, DMAttributes.CRIT_CHANCE),
+                attributeValue(player, DMAttributes.CRIT_DAMAGE),
+        };
+    }
+
+    /**
+     * 读取属性值；属性不存在时返回 0。
+     *
+     * @param player    本地玩家
+     * @param attribute 属性
+     * @return 属性值
+     */
+    private static double attributeValue(LocalPlayer player, Holder<Attribute> attribute) {
+        return player.getAttribute(attribute) == null ? 0.0D : player.getAttributeValue(attribute);
+    }
+
+    /** 清空缓存。 */
+    private static void clearCache() {
+        cachedPanel = null;
     }
 
     /**
@@ -168,9 +280,7 @@ public final class StatsPanelOverlay {
      * @param font   字体，用于后续宽度计算
      * @return 属性行列表
      */
-    private static List<Row> collectRows(LocalPlayer player, Font font) {
-        List<Row> rows = new ArrayList<>();
-
+    private static void buildRows(List<Row> rows, LocalPlayer player) {
         // 攻击力区：三个属性同属一个乘区，合并为一行。
         // 有明确的基础值，因此显示「结果（基础值 + 加成）」。
         addAttackPowerZoneRow(rows, player);
@@ -180,11 +290,7 @@ public final class StatsPanelOverlay {
         addBonusOnlyRow(rows, player, DMAttributes.DAMAGE_AMPLIFIER);
         addBonusOnlyRow(rows, player, DMAttributes.DAMAGE_MULTIPLIER);
         addBonusOnlyRow(rows, player, DMAttributes.CRIT_CHANCE);
-
-        // 暴击伤害：基础值与结果都在同一属性上，同样按「结果（增加量）」处理。
         addBonusOnlyRow(rows, player, DMAttributes.CRIT_DAMAGE);
-
-        return rows;
     }
 
     /**

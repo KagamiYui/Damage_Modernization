@@ -174,8 +174,11 @@ public final class DamageEventHandler {
         BaseAttackPowerConverter.resolveBaseAttackPower(entity);
     }
 
+    /** 刷新间隔：20 tick = 1 秒。 */
+    private static final int REFRESH_INTERVAL_TICKS = 20;
+
     /**
-     * 服务端每 tick 刷新所有在线玩家的基础攻击力。
+     * 服务端每秒刷新一次所有在线玩家的基础攻击力。
      *
      * <h2>为什么不能只依赖事件</h2>
      * 镜像（把原版攻击伤害的修饰符搬到基础攻击力上）原本只在
@@ -184,16 +187,26 @@ public final class DamageEventHandler {
      * 都可能让 {@code base_attack_power} 停留在旧值——
      * 属性面板因此要等到「换物品」或「攻击过」之后才更新。
      *
-     * <p>改由服务端每 tick 权威刷新后，数值始终跟随当前武器，
-     * 再经原有的属性同步下发到客户端，面板即可实时反映。
+     * <p>改由服务端<b>每秒</b>权威刷新后，数值始终跟得上当前武器，
+     * 再经原有的属性同步下发到客户端，面板即可及时反映。
      *
-     * <p>刷新是幂等的（先按前缀清除旧镜像再重建），因此每 tick 重复调用安全。
+     * <h2>为什么不每 tick 刷新</h2>
+     * 镜像涉及修饰符的增删与属性脏标记，每 tick 执行属于无谓开销；
+     * 玩家的换装与状态变化远不到每 tick 的频率，
+     * 1 秒的延迟对属性面板而言已足够，也避免了频繁的网络同步。
+     *
+     * <p>刷新是幂等的（先按前缀清除旧镜像再重建），重复调用安全。
      *
      * @param event 服务端 tick 事件
      */
     @SubscribeEvent
     public static void onServerTick(net.neoforged.neoforge.event.tick.ServerTickEvent.Post event) {
         if (!DamagePipeline.isModelEnabled()) {
+            return;
+        }
+
+        // 用服务端自身的 tick 计数做节流，每 20 tick（1 秒）执行一次。
+        if (event.getServer().getTickCount() % REFRESH_INTERVAL_TICKS != 0) {
             return;
         }
 
