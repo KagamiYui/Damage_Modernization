@@ -2,9 +2,6 @@ package com.vestudio.dmmod.damage;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 import com.vestudio.dmmod.DamageModernization;
 import com.vestudio.dmmod.api.DMAttributes;
@@ -47,15 +44,6 @@ public final class BaseAttackPowerConverter {
 
     /** 镜像修饰符的 id 前缀，用于识别并清理本类生成的修饰符。 */
     private static final String MIRROR_PREFIX = "dm_base_mirror_";
-
-    /**
-     * 记录实体上一次镜像产生的修饰符 id，便于下一轮清理，
-     * 避免武器切换或药水到期后残留旧值导致数值虚高。
-     *
-     * <p>key 为实体 UUID。使用并发 map，因为不同维度实体可能在不同线程结算。
-     */
-    private static final Map<UUID, List<ResourceLocation>> MIRRORED =
-            new ConcurrentHashMap<>();
 
     private BaseAttackPowerConverter() {
     }
@@ -111,31 +99,26 @@ public final class BaseAttackPowerConverter {
     /**
      * 镜像修饰符：把 attack_damage 上的修饰符复制到 base_attack_power。
      *
-     * <p>每轮先清除上一轮镜像的修饰符再重建，确保武器切换、药水到期等
-     * 情况下的数值始终与原版攻击伤害保持一致。
+     * <h2>清理策略：按前缀清除，而不是靠记忆</h2>
+     * 早期实现把「上一轮添加了哪些修饰符」记在一个按实体 UUID 索引的静态表里，
+     * 下次据此删除。这种做法在换手、切维度、死亡重生、以及客户端/服务端
+     * 各自维护一份表的情况下都可能失效，导致<b>旧武器的加成残留在空手上</b>。
      *
-     * <p>这些修饰符以 transient 方式添加，不写入存档，
-     * 因为它们每轮都会从原版属性重新推导，持久化反而会造成陈旧数据。
+     * <p>现在改为：每轮先把 {@code base_attack_power} 上所有带镜像前缀的修饰符
+     * 一并清除，再按当前武器重建。这样无论上一轮处于什么状态，
+     * 都不会有残留——不依赖任何跨调用的记忆。
      */
     private static void mirrorModifiers(LivingEntity entity,
                                         AttributeInstance baseAttr,
                                         AttributeInstance vanillaAttr) {
-        List<ResourceLocation> previous = MIRRORED.get(entity.getUUID());
+        // 清除本类此前添加的所有镜像修饰符（按前缀识别）。
+        removeAllMirrors(baseAttr);
 
-        // 清理上一轮镜像，防止叠加。
-        if (previous != null) {
-            for (ResourceLocation id : previous) {
-                baseAttr.removeModifier(id);
-            }
-        }
-
-        List<ResourceLocation> applied = new ArrayList<>();
         int index = 0;
 
         for (AttributeModifier modifier : vanillaAttr.getModifiers()) {
             // 跳过本类自己的镜像，避免自我复制造成指数增长。
-            if (modifier.id().getNamespace().equals(DamageModernization.MODID)
-                    && modifier.id().getPath().startsWith(MIRROR_PREFIX)) {
+            if (isMirror(modifier)) {
                 continue;
             }
 
@@ -147,7 +130,6 @@ public final class BaseAttackPowerConverter {
 
             try {
                 baseAttr.addOrUpdateTransientModifier(mirror);
-                applied.add(mirrorId);
             } catch (Exception e) {
                 // 单个修饰符失败不应中断整体结算，仅记录调试日志。
                 DamageModernization.LOGGER.debug(
@@ -155,8 +137,38 @@ public final class BaseAttackPowerConverter {
                         modifier.id(), e);
             }
         }
+    }
 
-        MIRRORED.put(entity.getUUID(), applied);
+    /**
+     * 清除基础攻击力上所有由本类添加的镜像修饰符。
+     *
+     * @param baseAttr 基础攻击力属性实例
+     */
+    public static void removeAllMirrors(AttributeInstance baseAttr) {
+        if (baseAttr == null) {
+            return;
+        }
+
+        // 先收集再删除，避免在遍历过程中修改集合。
+        List<ResourceLocation> toRemove = new ArrayList<>();
+        for (AttributeModifier modifier : baseAttr.getModifiers()) {
+            if (isMirror(modifier)) {
+                toRemove.add(modifier.id());
+            }
+        }
+        for (ResourceLocation id : toRemove) {
+            baseAttr.removeModifier(id);
+        }
+    }
+
+    /**
+     * {@return 该修饰符是否由本类镜像生成}
+     *
+     * @param modifier 修饰符
+     */
+    private static boolean isMirror(AttributeModifier modifier) {
+        return modifier.id().getNamespace().equals(DamageModernization.MODID)
+                && modifier.id().getPath().startsWith(MIRROR_PREFIX);
     }
 
     /**
@@ -176,14 +188,15 @@ public final class BaseAttackPowerConverter {
     }
 
     /**
-     * 清理某个实体的镜像记录，避免 map 无限增长。
+     * 清除某个实体基础攻击力上的镜像修饰符。
      *
-     * <p>应在实体卸载或死亡时调用。
+     * <p>应在实体死亡或卸载时调用，把镜像状态一并清干净，
+     * 避免实体被复用或重新加入时残留旧武器的加成。
      *
      * @param entity 目标实体
      */
     public static void forget(LivingEntity entity) {
-        MIRRORED.remove(entity.getUUID());
+        removeAllMirrors(entity.getAttribute(DMAttributes.BASE_ATTACK_POWER));
     }
 
     /**

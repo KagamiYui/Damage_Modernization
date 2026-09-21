@@ -146,6 +146,35 @@ public final class DamageEventHandler {
     }
 
     /**
+     * 装备变化时立即刷新基础攻击力。
+     *
+     * <p>否则镜像只在<b>下一次伤害结算</b>时才更新，期间
+     * {@code base_attack_power} 会保留上一把武器的数值——
+     * 属性面板会显示陈旧数据，切到空手后也可能读到上一把武器的攻击力。
+     *
+     * <p>只在服务端执行：数值由服务端权威计算并同步给客户端，
+     * 避免两端各自维护一份镜像状态而产生分歧。
+     *
+     * @param event 装备变化事件
+     */
+    @SubscribeEvent
+    public static void onEquipmentChange(net.neoforged.neoforge.event.entity.living.LivingEquipmentChangeEvent event) {
+        if (!DamagePipeline.isModelEnabled()) {
+            return;
+        }
+
+        LivingEntity entity = event.getEntity();
+        if (entity.level().isClientSide()) {
+            return;
+        }
+
+        // 重新推导镜像，使基础攻击力尽早反映当前武器。
+        // 即便此刻原版属性尚未结算完（读到中间态），
+        // 下一次伤害结算也会再次推导，因此不会影响实际伤害。
+        BaseAttackPowerConverter.resolveBaseAttackPower(entity);
+    }
+
+    /**
      * 实体死亡时清理缓存，避免内存泄漏。
      *
      * @param event 死亡事件
