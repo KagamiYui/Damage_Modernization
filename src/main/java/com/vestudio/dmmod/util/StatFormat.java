@@ -31,20 +31,42 @@ public final class StatFormat {
     }
 
     /**
+     * 「基础值 + 非基础值」型数值的排版：{@code 结果（基础值 + 非基础值）}。
+     *
+     * <p>用于拥有<b>可成长基础值</b>的体系（攻击力、生命值）：
+     * 基础值本身可以变化（武器、装备），百分比与固定加成叠加在其上。
+     *
+     * <pre>
+     *   结果 = 基础值 × (1 + 百分比) + 固定值
+     *   非基础值 = 结果 − 基础值
+     * </pre>
+     *
+     * <p>无非基础部分时只返回结果，不带括号。
+     *
+     * @param attribute 属性（决定数值的显示格式）
+     * @param total     结果
+     * @param base      基础值
+     * @param bonus     非基础值（结果 − 基础值）
+     * @return 排版后的文本
+     */
+    public static String basePlusBonus(Holder<Attribute> attribute,
+                                       double total,
+                                       double base,
+                                       double bonus) {
+        String text = render(attribute, total);
+        if (isZero(bonus)) {
+            return text;
+        }
+        return text + "（" + render(attribute, base)
+                + " + " + render(attribute, Math.abs(bonus)) + "）";
+    }
+
+    /**
      * 攻击力区的数值文本：{@code 结果（基础攻击力 + 非基础攻击力）}。
      *
      * <p><b>基础攻击力包含武器贡献</b>：武器的攻击伤害会被换算并计入基础攻击力
      * （空手 1、钻石剑 7），因此这里传入的 {@code base} 是<b>手持当前武器时</b>
      * 的基础攻击力，而不是那个不含武器的 1。
-     *
-     * <p>加号后面是<b>非基础</b>的那部分——由攻击力百分比提升与固定攻击力
-     * 额外带来的点数。两者相加即为该乘区结果：
-     * <pre>
-     *   结果 = 基础攻击力 × (1 + 百分比提升) + 固定攻击力
-     *   非基础攻击力 = 结果 − 基础攻击力
-     * </pre>
-     *
-     * <p>无非基础部分时只返回结果，不带括号。
      *
      * @param total 攻击力区结果
      * @param base  基础攻击力（含武器）
@@ -52,12 +74,7 @@ public final class StatFormat {
      * @return 排版后的文本
      */
     public static String attackPowerValue(double total, double base, double bonus) {
-        String text = render(DMAttributes.BASE_ATTACK_POWER, total);
-        if (isZero(bonus)) {
-            return text;
-        }
-        return text + "（" + render(DMAttributes.BASE_ATTACK_POWER, base)
-                + " + " + render(DMAttributes.BASE_ATTACK_POWER, Math.abs(bonus)) + "）";
+        return basePlusBonus(DMAttributes.BASE_ATTACK_POWER, total, base, bonus);
     }
 
     /**

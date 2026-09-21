@@ -212,6 +212,8 @@ public final class DamageEventHandler {
 
         for (net.minecraft.server.level.ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
             BaseAttackPowerConverter.resolveBaseAttackPower(player);
+            // 生命值同样每秒重算一次，结果写回 max_health。
+            HealthCalculator.resolveMaxHealth(player);
         }
     }
 
@@ -224,6 +226,7 @@ public final class DamageEventHandler {
     public static void onLivingDeath(LivingDeathEvent event) {
         AttackContext.clear();
         BaseAttackPowerConverter.forget(event.getEntity());
+        HealthCalculator.forget(event.getEntity());
     }
 
     /**

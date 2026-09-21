@@ -239,10 +239,15 @@ public final class StatsPanelOverlay {
      */
     private static double[] readValues(LocalPlayer player) {
         return new double[] {
+                // 生命值体系
+                attributeValue(player, DMAttributes.BASE_HEALTH),
+                attributeValue(player, DMAttributes.HEALTH_PERCENT),
+                attributeValue(player, DMAttributes.HEALTH_FLAT),
+                // 攻击力体系
                 attributeValue(player, DMAttributes.BASE_ATTACK_POWER),
-                player.getAttributeBaseValue(DMAttributes.BASE_ATTACK_POWER),
                 attributeValue(player, DMAttributes.ATTACK_POWER_PERCENT),
                 attributeValue(player, DMAttributes.ATTACK_POWER_FLAT),
+                // 其余乘区
                 attributeValue(player, DMAttributes.DAMAGE_AMPLIFIER),
                 attributeValue(player, DMAttributes.DAMAGE_MULTIPLIER),
                 attributeValue(player, DMAttributes.CRIT_CHANCE),
@@ -281,8 +286,9 @@ public final class StatsPanelOverlay {
      * @return 属性行列表
      */
     private static void buildRows(List<Row> rows, LocalPlayer player) {
-        // 攻击力区：三个属性同属一个乘区，合并为一行。
-        // 有明确的基础值，因此显示「结果（基础值 + 加成）」。
+        // 生命值与攻击力同属「有基础值的成长体系」，因此都显示
+        // 「结果（基础值 + 非基础值）」。
+        addHealthRow(rows, player);
         addAttackPowerZoneRow(rows, player);
 
         // 其余乘区没有分开的基础值，只显示「结果（增加量）」；
@@ -291,6 +297,52 @@ public final class StatsPanelOverlay {
         addBonusOnlyRow(rows, player, DMAttributes.DAMAGE_MULTIPLIER);
         addBonusOnlyRow(rows, player, DMAttributes.CRIT_CHANCE);
         addBonusOnlyRow(rows, player, DMAttributes.CRIT_DAMAGE);
+    }
+
+    /**
+     * 生成「生命值」这一行。
+     *
+     * <p>与攻击力区同一套逻辑：
+     * <pre>
+     *   结果 = 基础生命值 × (1 + 生命值百分比提升) + 固定生命值
+     *   非基础生命值 = 结果 − 基础生命值
+     * </pre>
+     * 基础生命值由原版 max_health 镜像而来（含装备加成），
+     * 因此显示为「结果（基础生命值 + 非基础生命值）」。
+     *
+     * @param rows   结果列表
+     * @param player 本地玩家
+     */
+    private static void addHealthRow(List<Row> rows, LocalPlayer player) {
+        Holder<Attribute> baseAttr = DMAttributes.BASE_HEALTH;
+
+        if (player.getAttribute(baseAttr) == null) {
+            return;
+        }
+
+        // 基础生命值：已含装备等提供的生命加成。
+        double baseHealth = player.getAttributeValue(baseAttr);
+
+        // 百分比与固定加值。
+        double percent = player.getAttribute(DMAttributes.HEALTH_PERCENT) == null
+                ? 0.0D
+                : player.getAttributeValue(DMAttributes.HEALTH_PERCENT);
+        double flat = player.getAttribute(DMAttributes.HEALTH_FLAT) == null
+                ? 0.0D
+                : player.getAttributeValue(DMAttributes.HEALTH_FLAT);
+
+        // 该体系最终血量 = 基础生命值 × (1 + 百分比) + 固定值。
+        double total = baseHealth * (1.0D + percent) + flat;
+
+        // 非基础部分 = 结果 − 基础生命值。
+        double nonBase = total - baseHealth;
+
+        String name = Component.translatable(baseAttr.value().getDescriptionId()).getString();
+
+        // 与攻击力同样的排版：结果（基础值 + 非基础值）。
+        String value = StatFormat.basePlusBonus(DMAttributes.BASE_HEALTH, total, baseHealth, nonBase);
+
+        rows.add(new Row(name, value));
     }
 
     /**

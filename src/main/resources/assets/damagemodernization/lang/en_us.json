@@ -8,6 +8,9 @@
   "attribute.damagemodernization.damage_multiplier": "Damage Multiplier",
   "attribute.damagemodernization.crit_chance": "Critical Chance",
   "attribute.damagemodernization.crit_damage": "Critical Damage",
+  "attribute.damagemodernization.base_health": "Health",
+  "attribute.damagemodernization.health_percent": "Health Bonus",
+  "attribute.damagemodernization.health_flat": "Flat Health",
 
   "damagemodernization.value.percent": "%s%%",
 

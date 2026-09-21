@@ -8,6 +8,9 @@
   "attribute.damagemodernization.damage_multiplier": "伤害倍率",
   "attribute.damagemodernization.crit_chance": "暴击率",
   "attribute.damagemodernization.crit_damage": "暴击伤害",
+  "attribute.damagemodernization.base_health": "生命值",
+  "attribute.damagemodernization.health_percent": "生命值百分比提升",
+  "attribute.damagemodernization.health_flat": "固定生命值",
 
   "damagemodernization.value.percent": "%s%%",
 

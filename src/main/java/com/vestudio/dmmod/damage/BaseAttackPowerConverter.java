@@ -1,15 +1,9 @@
 package com.vestudio.dmmod.damage;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import com.vestudio.dmmod.DamageModernization;
 import com.vestudio.dmmod.api.DMAttributes;
 
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
-import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 
 /**
@@ -42,9 +36,6 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
  */
 public final class BaseAttackPowerConverter {
 
-    /** 镜像修饰符的 id 前缀，用于识别并清理本类生成的修饰符。 */
-    private static final String MIRROR_PREFIX = "dm_base_mirror_";
-
     private BaseAttackPowerConverter() {
     }
 
@@ -73,102 +64,10 @@ public final class BaseAttackPowerConverter {
             return sanitize(vanillaAttr.getValue(), 1.0D);
         }
 
-        syncBaseValue(baseAttr, vanillaAttr);
-        mirrorModifiers(entity, baseAttr, vanillaAttr);
+        // 复用统一的镜像逻辑：搬迁基础值 + 按前缀重建修饰符。
+        AttributeMirror.mirror(baseAttr, vanillaAttr, AttributeMirror.ATTACK_POWER_PREFIX);
 
         return sanitize(baseAttr.getValue(), sanitize(vanillaAttr.getValue(), 1.0D));
-    }
-
-    /**
-     * 搬迁基础值：base_attack_power.baseValue ← attack_damage.baseValue。
-     *
-     * <p>基础值承载的是「武器/生物自身的固有攻击力」，
-     * 例如玩家基础值 1.0、僵尸基础值 3.0。
-     */
-    private static void syncBaseValue(AttributeInstance baseAttr, AttributeInstance vanillaAttr) {
-        double vanillaBase = vanillaAttr.getBaseValue();
-        if (!Double.isFinite(vanillaBase) || vanillaBase < 0.0D) {
-            return;
-        }
-        // 仅在确有差异时写入，避免每 tick 触发属性脏标记与网络同步。
-        if (Math.abs(baseAttr.getBaseValue() - vanillaBase) > 1.0E-6D) {
-            baseAttr.setBaseValue(vanillaBase);
-        }
-    }
-
-    /**
-     * 镜像修饰符：把 attack_damage 上的修饰符复制到 base_attack_power。
-     *
-     * <h2>清理策略：按前缀清除，而不是靠记忆</h2>
-     * 早期实现把「上一轮添加了哪些修饰符」记在一个按实体 UUID 索引的静态表里，
-     * 下次据此删除。这种做法在换手、切维度、死亡重生、以及客户端/服务端
-     * 各自维护一份表的情况下都可能失效，导致<b>旧武器的加成残留在空手上</b>。
-     *
-     * <p>现在改为：每轮先把 {@code base_attack_power} 上所有带镜像前缀的修饰符
-     * 一并清除，再按当前武器重建。这样无论上一轮处于什么状态，
-     * 都不会有残留——不依赖任何跨调用的记忆。
-     */
-    private static void mirrorModifiers(LivingEntity entity,
-                                        AttributeInstance baseAttr,
-                                        AttributeInstance vanillaAttr) {
-        // 清除本类此前添加的所有镜像修饰符（按前缀识别）。
-        removeAllMirrors(baseAttr);
-
-        int index = 0;
-
-        for (AttributeModifier modifier : vanillaAttr.getModifiers()) {
-            // 跳过本类自己的镜像，避免自我复制造成指数增长。
-            if (isMirror(modifier)) {
-                continue;
-            }
-
-            ResourceLocation mirrorId = ResourceLocation.fromNamespaceAndPath(
-                    DamageModernization.MODID, MIRROR_PREFIX + index++);
-
-            AttributeModifier mirror = new AttributeModifier(
-                    mirrorId, modifier.amount(), modifier.operation());
-
-            try {
-                baseAttr.addOrUpdateTransientModifier(mirror);
-            } catch (Exception e) {
-                // 单个修饰符失败不应中断整体结算，仅记录调试日志。
-                DamageModernization.LOGGER.debug(
-                        "Failed to mirror modifier {} onto base_attack_power",
-                        modifier.id(), e);
-            }
-        }
-    }
-
-    /**
-     * 清除基础攻击力上所有由本类添加的镜像修饰符。
-     *
-     * @param baseAttr 基础攻击力属性实例
-     */
-    public static void removeAllMirrors(AttributeInstance baseAttr) {
-        if (baseAttr == null) {
-            return;
-        }
-
-        // 先收集再删除，避免在遍历过程中修改集合。
-        List<ResourceLocation> toRemove = new ArrayList<>();
-        for (AttributeModifier modifier : baseAttr.getModifiers()) {
-            if (isMirror(modifier)) {
-                toRemove.add(modifier.id());
-            }
-        }
-        for (ResourceLocation id : toRemove) {
-            baseAttr.removeModifier(id);
-        }
-    }
-
-    /**
-     * {@return 该修饰符是否由本类镜像生成}
-     *
-     * @param modifier 修饰符
-     */
-    private static boolean isMirror(AttributeModifier modifier) {
-        return modifier.id().getNamespace().equals(DamageModernization.MODID)
-                && modifier.id().getPath().startsWith(MIRROR_PREFIX);
     }
 
     /**
@@ -196,7 +95,9 @@ public final class BaseAttackPowerConverter {
      * @param entity 目标实体
      */
     public static void forget(LivingEntity entity) {
-        removeAllMirrors(entity.getAttribute(DMAttributes.BASE_ATTACK_POWER));
+        AttributeMirror.removeMirrors(
+                entity.getAttribute(DMAttributes.BASE_ATTACK_POWER),
+                AttributeMirror.ATTACK_POWER_PREFIX);
     }
 
     /**

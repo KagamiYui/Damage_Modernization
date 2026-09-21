@@ -8,6 +8,7 @@ import com.vestudio.dmmod.damage.zone.BuiltInZones;
 
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
@@ -103,11 +104,38 @@ public class DamageModernization {
             addOrDefault(event, type, DMAttributes.DAMAGE_MULTIPLIER, damageMultiplier);
             addOrDefault(event, type, DMAttributes.CRIT_CHANCE, critChance);
             addOrDefault(event, type, DMAttributes.CRIT_DAMAGE, critDamage);
+
+            // 生命值体系：基础生命值默认取原版血量，
+            // 使「基础生命值 = max_health」成立，百分比才有正确基准。
+            addOrDefault(event, type, DMAttributes.BASE_HEALTH, vanillaBaseHealth(type));
+            addIfAbsent(event, type, DMAttributes.HEALTH_PERCENT);
+            addIfAbsent(event, type, DMAttributes.HEALTH_FLAT);
         }
 
         LOGGER.info(
                 "Injected damage attribute defaults (critChance={}, critDamage={}, damageMultiplier={})",
                 critChance, critDamage, damageMultiplier);
+    }
+
+    /**
+     * {@return 该实体类型的原版最大生命值}
+     *
+     * <p>用于把基础生命值的默认值对齐到原版血量，
+     * 否则「基础生命值 × (1 + 百分比)」会因为基准不对而算错。
+     *
+     * @param type 实体类型
+     */
+    private static double vanillaBaseHealth(EntityType<? extends LivingEntity> type) {
+        double fallback = 20.0D;
+        try {
+            var supplier = net.minecraft.world.entity.ai.attributes.DefaultAttributes.getSupplier(type);
+            if (supplier.hasAttribute(Attributes.MAX_HEALTH)) {
+                return supplier.getBaseValue(Attributes.MAX_HEALTH);
+            }
+        } catch (Exception e) {
+            // 取不到时退回玩家默认血量。
+        }
+        return fallback;
     }
 
     /**

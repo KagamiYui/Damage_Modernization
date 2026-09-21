@@ -140,6 +140,51 @@ public final class DMAttributes {
                     Config.critDamageOrDefault(), 0.0D, 1_000.0D)
                     .setSyncable(true));
 
+    // ==================================================================
+    // 生命值
+    // ==================================================================
+    //
+    // 与攻击力同样的思路：原版 max_health 的语义是「最终血量」，
+    // 这里新增 base_health 承载「基础生命值」，再叠加百分比与固定加成，
+    // 算出的结果写回 max_health。
+
+    /**
+     * 基础生命值：生命值计算的基准，包含装备等提供的生命加成。
+     *
+     * <p>默认 20.0（与原版玩家血量一致）。
+     * 可成长的百分比加成作用于该值，而非直接作用于最终血量。
+     */
+    public static final Holder<Attribute> BASE_HEALTH = ATTRIBUTES.register(
+            "base_health",
+            () -> new RangedAttribute(
+                    "attribute.damagemodernization.base_health",
+                    20.0D, 0.0D, 1_000_000.0D)
+                    .setSyncable(true));
+
+    /**
+     * 生命值百分比提升：作用于基础生命值的百分比加成。
+     *
+     * <p>采用 {@link PercentDisplayAttribute}，因此 0.1 显示为 +10%。默认 0.0。
+     */
+    public static final Holder<Attribute> HEALTH_PERCENT = ATTRIBUTES.register(
+            "health_percent",
+            () -> new PercentDisplayAttribute(
+                    "attribute.damagemodernization.health_percent",
+                    0.0D, -1.0D, 1_000.0D)
+                    .setSyncable(true));
+
+    /**
+     * 固定生命值：直接加在「基础生命值 × (1 + 百分比)」之上的固定值。
+     *
+     * <p>默认 0.0。
+     */
+    public static final Holder<Attribute> HEALTH_FLAT = ATTRIBUTES.register(
+            "health_flat",
+            () -> new RangedAttribute(
+                    "attribute.damagemodernization.health_flat",
+                    0.0D, -1_000_000.0D, 1_000_000.0D)
+                    .setSyncable(true));
+
     private DMAttributes() {
     }
 }
