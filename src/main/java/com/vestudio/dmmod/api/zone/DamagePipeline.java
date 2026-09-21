@@ -108,7 +108,12 @@ public final class DamagePipeline {
 
         double multiplierZone = ctx.damageMultiplier();
 
-        double critZone = ctx.isCritical() ? ctx.critDamage() : 1.0D;
+        // 暴击区：不暴击时为 1.0，保证不影响伤害。
+        //
+        // 暴击伤害的加成允许为负（减益效果），但乘区内有下限：
+        // 生效值不低于 1.0。这样「暴击」永远不会比不暴击造成更低的伤害，
+        // 即便暴击伤害属性被削减到 1.0 以下。
+        double critZone = ctx.isCritical() ? Math.max(1.0D, ctx.critDamage()) : 1.0D;
 
         double result = attackPowerZone * amplifierZone * multiplierZone * critZone;
 

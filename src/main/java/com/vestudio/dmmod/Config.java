@@ -106,8 +106,11 @@ public final class Config {
     public static final ModConfigSpec.DoubleValue CRIT_ZONE_DAMAGE_BONUS = BUILDER
             .comment(
                     "暴击伤害的全局加成，以加法方式叠加到暴击倍率上。",
-                    "0.0 表示不额外加成（默认）；0.5 表示暴击倍率 +0.5。")
-            .defineInRange("critZone.globalDamageBonus", 0.0D, -1.0D, 1000.0D);
+                    "0.0 表示不额外加成（默认）；0.5 表示暴击倍率 +0.5。",
+                    "允许为负，用于表达「降低暴击伤害」的减益效果。",
+                    "注意：生效后的暴击乘区有下限 1.0，",
+                    "因此即使加成很大导致结果低于 1.0，暴击也不会比不暴击伤害更低。")
+            .defineInRange("critZone.globalDamageBonus", 0.0D, -1000.0D, 1000.0D);
 
     // ==================================================================
     // 属性默认值
@@ -122,8 +125,9 @@ public final class Config {
     public static final ModConfigSpec.DoubleValue DEFAULT_CRIT_DAMAGE = BUILDER
             .comment(
                     "暴击伤害倍率的默认值，适用于所有未被单独配置的生物。",
-                    "1.5 表示暴击造成 1.5 倍伤害（与原版一致，默认）；2.0 表示两倍。")
-            .defineInRange("defaults.critDamage", 1.5D, 1.0D, 1000.0D);
+                    "1.5 表示暴击造成 1.5 倍伤害（与原版一致，默认）；2.0 表示两倍。",
+                    "允许设为 1.0 以下以表达减益，但生效的暴击乘区下限为 1.0。")
+            .defineInRange("defaults.critDamage", 1.5D, 0.0D, 1000.0D);
 
     public static final ModConfigSpec.DoubleValue DEFAULT_DAMAGE_MULTIPLIER = BUILDER
             .comment(

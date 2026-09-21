@@ -127,14 +127,17 @@ public final class DMAttributes {
     /**
      * 暴击伤害：暴击时的伤害倍率。
      *
-     * <p>默认 1.5（与原版暴击倍率一致），即暴击区为 ×1.5；
-     * 设为 2.0 则表示暴击造成两倍伤害。
+     * <p>默认 1.5（与原版暴击倍率一致），即暴击区为 ×1.5；设为 2.0 则表示两倍。
+     *
+     * <p>该属性允许被削减到 1.0 以下以表达减益，但真正施加到伤害上的
+     * 暴击乘区有下限 1.0（见 {@code DamagePipeline#computeZones}），
+     * 因此「暴击」永远不会比不暴击伤害更低。
      */
     public static final Holder<Attribute> CRIT_DAMAGE = ATTRIBUTES.register(
             "crit_damage",
             () -> new PercentDisplayAttribute(
                     "attribute.damagemodernization.crit_damage",
-                    Config.critDamageOrDefault(), 1.0D, 1_000.0D)
+                    Config.critDamageOrDefault(), 0.0D, 1_000.0D)
                     .setSyncable(true));
 
     private DMAttributes() {

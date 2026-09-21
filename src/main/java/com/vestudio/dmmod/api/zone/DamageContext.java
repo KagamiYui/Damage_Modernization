@@ -264,7 +264,13 @@ public final class DamageContext {
         this.critical = critical;
     }
 
-    /** {@return 暴击伤害倍率} */
+    /**
+     * {@return 暴击伤害倍率（<b>原始存储值</b>，未做下限处理）}
+     *
+     * <p>该值可能低于 1.0（例如被减益效果削减）。真正参与伤害计算的下限
+     * 由 {@link DamagePipeline#computeZones} 负责，那里会钳制为不小于 1.0，
+     * 确保「暴击不会比不暴击伤害更低」。
+     */
     public double critDamage() {
         return critDamage;
     }
@@ -272,10 +278,17 @@ public final class DamageContext {
     /**
      * 设置暴击伤害倍率。
      *
-     * @param value 倍率，1.5 表示暴击造成 1.5 倍伤害
+     * <p>允许传入低于 1.0 的值，用于表达「降低暴击伤害」的减益效果；
+     * 按需求，加成可以为负。最终施加到伤害上的生效值会在
+     * {@link DamagePipeline#computeZones} 中被钳制为不低于 1.0。
+     *
+     * <p>注意：本方法是<b>覆盖</b>而非累加。若希望在既有数值上叠加，
+     * 请传 {@code context.critDamage() + delta}。
+     *
+     * @param value 存储值，1.5 表示暴击造成 1.5 倍伤害
      */
     public void setCritDamage(double value) {
-        if (Double.isFinite(value) && value >= 1.0D) {
+        if (Double.isFinite(value)) {
             this.critDamage = value;
         }
     }
