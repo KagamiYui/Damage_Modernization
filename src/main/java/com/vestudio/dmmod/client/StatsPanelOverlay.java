@@ -171,15 +171,85 @@ public final class StatsPanelOverlay {
     private static List<Row> collectRows(LocalPlayer player, Font font) {
         List<Row> rows = new ArrayList<>();
 
-        addRow(rows, player, DMAttributes.BASE_ATTACK_POWER);
-        addRow(rows, player, DMAttributes.ATTACK_POWER_PERCENT);
-        addRow(rows, player, DMAttributes.ATTACK_POWER_FLAT);
+        // 攻击力区：三个属性同属一个乘区，合并为一行，
+        // 避免同一个乘区的多个「提升」被拆成多行显示。
+        addAttackPowerZoneRow(rows, player);
+
         addRow(rows, player, DMAttributes.DAMAGE_AMPLIFIER);
         addRow(rows, player, DMAttributes.DAMAGE_MULTIPLIER);
         addRow(rows, player, DMAttributes.CRIT_CHANCE);
         addRow(rows, player, DMAttributes.CRIT_DAMAGE);
 
         return rows;
+    }
+
+    /**
+     * 生成「攻击力区」这一行。
+     *
+     * <p>该乘区由三个属性共同决定：{@code 基础攻击力}、{@code 攻击力百分比提升}、
+     * {@code 固定攻击力}。三者同属一个乘区，因此合并为<b>一行</b>展示。
+     *
+     * <h2>显示格式</h2>
+     * <pre>
+     *   攻击力   总值（基础值+提升值）
+     * </pre>
+     *
+     * <h2>关键：提升值显示为换算后的点数</h2>
+     * 百分比是「率」而不是点数，玩家真正关心的是它最终贡献了多少点攻击力。
+     * 因此这里不显示百分比本身，而是把它<b>换算成点数</b>后并入提升值：
+     * <pre>
+     *   总值   = 基础攻击力 × (1 + 百分比提升) + 固定攻击力
+     *   提升值 = 总值 − 基础攻击力
+     *          = 基础攻击力 × 百分比提升 + 固定攻击力
+     * </pre>
+     * 即提升值 = 「百分比换算出的点数」+「固定攻击力」，
+     * 且始终满足 {@code 总值 = 基础值 + 提升值}，不会出现单位混加。
+     *
+     * <h2>与其他行的差异</h2>
+     * 其余乘区（伤害提升、伤害倍率、暴击率、暴击伤害）各自只对应一个属性，
+     * 不存在跨属性合并的问题，因此直接沿用属性自身的显示格式。
+     *
+     * @param rows   结果列表
+     * @param player 本地玩家
+     */
+    private static void addAttackPowerZoneRow(List<Row> rows, LocalPlayer player) {
+        Holder<Attribute> baseAttr = DMAttributes.BASE_ATTACK_POWER;
+
+        // 基础攻击力缺失时不显示该行（属性被其他模组移除的极端情况）。
+        if (player.getAttribute(baseAttr) == null) {
+            return;
+        }
+
+        // 基础值：武器/装备加成以修饰符形式存在，因此这里是不含加成的基准。
+        double base = player.getAttributeBaseValue(baseAttr);
+
+        // 攻击力区总值的计算基准：属性总值（基础值 + 武器等修饰符）。
+        double attackPower = player.getAttributeValue(baseAttr);
+
+        // 百分比与固定加值；属性缺失时按 0 处理，不影响其余计算。
+        double percent = player.getAttribute(DMAttributes.ATTACK_POWER_PERCENT) == null
+                ? 0.0D
+                : player.getAttributeValue(DMAttributes.ATTACK_POWER_PERCENT);
+        double flat = player.getAttribute(DMAttributes.ATTACK_POWER_FLAT) == null
+                ? 0.0D
+                : player.getAttributeValue(DMAttributes.ATTACK_POWER_FLAT);
+
+        // 该乘区最终点数 = 攻击力总值 × (1 + 百分比) + 固定值。
+        double zoneTotal = attackPower * (1.0D + percent) + flat;
+
+        // 提升值 = 总值 − 基础值，保证 总值 = 基础值 + 提升值 恒成立。
+        double zoneBonus = zoneTotal - base;
+
+        String name = Component.translatable("gui." + DamageModernization.MODID + ".attack_power_zone")
+                .getString();
+
+        // 统一以「点」为单位显示（用基础攻击力属性做格式化依据），
+        // 因此提升值呈现的是换算后的固定值，而不是百分比。
+        String value = render(baseAttr, zoneTotal)
+                + "（" + render(baseAttr, base)
+                + "+" + renderSigned(baseAttr, zoneBonus) + "）";
+
+        rows.add(new Row(name, value));
     }
 
     /**
@@ -208,6 +278,29 @@ public final class StatsPanelOverlay {
     }
 
     /**
+     * 渲染一个带符号的数值。
+     *
+     * <p>正数补 {@code +}，负数由格式化器自带 {@code -}。
+     * 由于行内固定使用 {@code +} 作为分隔符，
+     * 当数值为负时必须去掉格式化器产生的负号，
+     * 否则会显示成 {@code +-0.5} 这样的双符号。
+     *
+     * @param attribute 属性（决定数值的显示格式）
+     * @param value     数值
+     * @return 带符号的文本
+     */
+    private static String renderSigned(Holder<Attribute> attribute, double value) {
+        String text = render(attribute, value);
+
+        // 统一交给分隔符表达正负，避免出现 "+-" 或 "--"。
+        // 去掉负号同时也把极小负数四舍五入产生的 "-0" 归一为 "0"。
+        if (text.startsWith("-")) {
+            return text.substring(1);
+        }
+        return text;
+    }
+
+    /**
      * 按「总值（基础值+提升值）」格式生成文本。
      *
      * <p>三处数值都经由属性自身的显示逻辑渲染，
@@ -222,16 +315,9 @@ public final class StatsPanelOverlay {
      * @return 格式化后的文本
      */
     private static String format(Holder<Attribute> attribute, double total, double base, double bonus) {
-        String totalText = render(attribute, total);
-        String baseText = render(attribute, base);
-        String bonusText = render(attribute, bonus);
-
-        // 提升值统一带符号，便于区分正负收益。
-        if (bonus > 0.0D && !bonusText.startsWith("+")) {
-            bonusText = "+" + bonusText;
-        }
-
-        return totalText + "（" + baseText + "+" + bonusText + "）";
+        return render(attribute, total)
+                + "（" + render(attribute, base)
+                + "+" + renderSigned(attribute, bonus) + "）";
     }
 
     /**
