@@ -11,6 +11,10 @@
 
   "damagemodernization.value.percent": "%s%%",
 
+  "key.categories.damagemodernization": "Damage Modernization",
+  "key.damagemodernization.toggle_stats_panel": "Toggle Stats Panel",
+  "gui.damagemodernization.stats_panel.title": "Damage Stats",
+
   "damagemodernization.configuration.title": "Damage_Modernization Configs",
   "damagemodernization.configuration.section.damagemodernization.common.toml": "Damage_Modernization Configs",
   "damagemodernization.configuration.section.damagemodernization.common.toml.title": "Damage_Modernization Configs",

@@ -11,6 +11,10 @@
 
   "damagemodernization.value.percent": "%s%%",
 
+  "key.categories.damagemodernization": "伤害现代化",
+  "key.damagemodernization.toggle_stats_panel": "打开/关闭属性面板",
+  "gui.damagemodernization.stats_panel.title": "伤害属性",
+
   "damagemodernization.configuration.title": "伤害现代化 配置",
   "damagemodernization.configuration.section.damagemodernization.common.toml": "伤害现代化 配置",
   "damagemodernization.configuration.section.damagemodernization.common.toml.title": "伤害现代化 配置",
