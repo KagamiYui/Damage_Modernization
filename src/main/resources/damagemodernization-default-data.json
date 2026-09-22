@@ -73,6 +73,15 @@
       "comment": "物理伤害减免：承伤乘区的子项，仅在物理伤害时生效"
     },
     {
+      "id": "damagemodernization:crit_damage_taken_reduction",
+      "default": 0.0,
+      "min": 0.0,
+      "max": 1.0,
+      "display": "percent",
+      "sentiment": "negative",
+      "comment": "受到的暴击伤害减免：只削减暴击增益部分，不影响非暴击伤害"
+    },
+    {
       "id": "damagemodernization:damage_multiplier",
       "default": 1.0,
       "min": 0.0,
@@ -94,7 +103,15 @@
       "min": 0.0,
       "max": 1000.0,
       "display": "percent",
-      "comment": "暴击伤害倍率"
+      "comment": "暴击伤害倍率（倍率本体，多个来源相乘）"
+    },
+    {
+      "id": "damagemodernization:crit_damage_bonus",
+      "default": 0.0,
+      "min": -1.0,
+      "max": 1000.0,
+      "display": "percent",
+      "comment": "暴击伤害加成：暴击区内的加算子项，多个来源相加"
     },
     {
       "id": "damagemodernization:base_health",
@@ -153,13 +170,15 @@
       "id": "critical",
       "priority": 750,
       "scale": 1.0,
-      "formula": "is_critical ? max(1, crit_damage + crit_bonus) : 1",
+      "formula": "is_critical ? max(1, 1 + (crit_damage + crit_damage_bonus + crit_bonus - 1) * (1 - crit_damage_taken_reduction)) : 1",
       "requires": [
         "is_critical",
         "crit_damage",
-        "crit_bonus"
+        "crit_damage_bonus",
+        "crit_bonus",
+        "crit_damage_taken_reduction"
       ],
-      "comment": "暴击区：不暴击时为 1，暴击时取下限 1 的暴击倍率"
+      "comment": "暴击区：不暴击时为 1。暴击倍率由 crit_damage（倍率本体）与 crit_damage_bonus、crit_bonus（加算子项）相加而成，因此多个爆伤来源彼此相加而非相乘。受害者的暴击伤害减免在区内直接削减增益（倍率−1）那部分；下限 1 保证暴击不会比不暴击更低"
     },
     {
       "scope": "health",
@@ -203,5 +222,35 @@
       ],
       "comment": "增减伤区（加算区）：攻击方的各类增伤与受害方的减伤相加成一个总和，再由 amplifier() 换算。这是增伤与减伤统一的乘区——前 50% 减伤线性生效，超出部分走对数曲线，结果恒大于 0。若一次伤害同时具有多种类型，对应子项会一并计入"
     }
+  ],
+
+  "_itemEffectsComment": "物品效果：给武器/装备/饰品追加属性修饰符，在「装备或持有时」生效。字段：target（物品 id，或 #标签）、attribute（本 mod 属性 id）、amount、operation（add_value / add_multiplied_base / add_multiplied_total）、slot（原版槽位：any / none / mainhand / offhand / hand / armor / head / chest / legs / feet）、curioSlot（饰品槽：留空表示按 slot 推导；any 或 * 表示全部饰品槽；none 表示不作用于饰品栏；其余为 Curios 槽位标识如 ring、necklace、belt、charm），comment 为说明。",
+  "_itemEffectsSlotRules": "slot 与 curioSlot 是两个独立维度。只写 slot=any 时同时覆盖原版任意槽位与全部饰品槽；只写 slot=mainhand 时不作用于饰品栏。想让某件饰品只在特定槽位生效，用 slot=none 搭配 curioSlot。饰品槽需要装有 Curios，未安装时只按原版槽位生效。",
+  "_itemEffectsExample": [
+    {
+      "target": "minecraft:diamond_sword",
+      "attribute": "damagemodernization:attack_power_percent",
+      "amount": 0.15,
+      "operation": "add_value",
+      "slot": "mainhand",
+      "comment": "钻石剑 +15% 攻击力，仅主手"
+    },
+    {
+      "target": "#minecraft:swords",
+      "attribute": "damagemodernization:crit_damage_bonus",
+      "amount": 0.2,
+      "slot": "mainhand",
+      "comment": "全部剑类 +20% 暴击伤害加成"
+    },
+    {
+      "target": "minecraft:golden_ingot",
+      "attribute": "damagemodernization:attack_power_flat",
+      "amount": 5.0,
+      "slot": "none",
+      "curioSlot": "ring",
+      "comment": "只在饰品 ring 槽生效的 +5 攻击力"
+    }
+  ],
+  "itemEffects": [
   ]
 }

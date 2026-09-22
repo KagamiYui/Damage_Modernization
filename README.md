@@ -24,7 +24,7 @@
 |---|---|---|
 | 攻击力区 | 由基础攻击力叠加各类攻击力加成 | 加算（百分比作用于基础攻击力） |
 | 伤害倍率区 | 独立乘数 | **乘算**：多个来源连乘 |
-| 暴击区 | 暴击时的伤害倍率 | 暴击则取暴击倍率（下限 1.0），否则为 1.0 |
+| 暴击区 | 暴击时的伤害倍率 | 加算（倍率本体 + 加算子项），下限 1.0 |
 | **增减伤区** | 攻击方的增伤与受害方的减伤 | **加算**：`Σ增伤 − Σ减伤`，再经曲线换算 |
 
 ### 增减伤区：增伤与减伤是同一乘区的两种体现
@@ -167,7 +167,9 @@
 | `damagemodernization:health_flat` | 0.0 | 固定生命值 |
 | `damagemodernization:physical_amplifier` | 0% | 物理伤害提升（增减伤区的子项） |
 | `damagemodernization:magic_amplifier` | 0% | 魔法伤害提升（增减伤区的子项） |
-| `damagemodernization:physical_resistance` | 0% | 物理伤害减免（承伤乘区的子项） |
+| `damagemodernization:physical_resistance` | 0% | 物理伤害减免（增减伤区的子项） |
+| `damagemodernization:crit_damage_bonus` | 0% | 暴击伤害加成（暴击区内的加算子项） |
+| `damagemodernization:crit_damage_taken_reduction` | 0% | 受到的暴击伤害减免（在暴击区内削减系数） |
 
 全部属性在 mod 启动时**注入到所有生物类型**，因此「所有生物的所有伤害」
 都能走四乘区管线。注入使用属性默认值，不会改变任何生物的现有强度。
@@ -190,21 +192,63 @@
 
 这样「跳跃下劈必定暴击」被替换为概率暴击，且不会双重计算。
 
-### 暴击伤害的负数加成与下限
+### 暴击区：倍率本体 + 加算子项
 
-`crit_damage` 属性与 `critZone.globalDamageBonus` 配置**都允许为负**，
-用于表达「降低暴击伤害」的减益效果。但暴击乘区有**硬下限 1.0**：
+暴击区内部也采用**加算**。两个属性角色不同：
+
+| 属性 | 角色 | 运算 |
+|---|---|---|
+| `crit_damage` | **倍率本体**（默认 1.5） | 多个来源**相乘** |
+| `crit_damage_bonus` | **加算子项** | 多个来源**相加** |
+| `crit_bonus` | 全局配置加成 | 与加算子项一样相加 |
 
 ```
-critZone = 暴击 ? max(1.0, 暴击伤害) : 1.0
+暴击倍率 = crit_damage + crit_damage_bonus + crit_bonus
+暴击区   = is_critical ? max(1, 1 + (暴击倍率 − 1) × (1 − 受害者减免)) : 1
+```
+
+**为什么这样分**：加算子项让多个爆伤词条**相加**而非相乘。
+例如两个来源各 +20% / +30%，以加算子项表达时合计 **+50%**（倍率 1.5 → 2.0），
+而不是 `1.5 × 1.2 × 1.3 = 2.34`。
+
+### 暴击伤害减免：只削减增益，不碰非暴击
+
+`crit_damage_taken_reduction` 是**受害者**的属性，但它在**攻击者的暴击区内**
+直接削减系数——这正是「减少受到的爆伤」的语义。
+
+削减的是**暴击增益**（倍率 − 1）那部分，而不是倍率本身：
+
+```
+暴击增益 = 暴击倍率 − 1        （1.5 倍即增益 0.5）
+削减后   = 增益 × (1 − 减免)
+新倍率   = 1 + 削减后
+```
+
+若直接削减倍率（`1.5 × 0.6 = 0.9`），暴击会变得**比不暴击还低**，
+因此必须只削减增益：
+
+| 暴击倍率 | 减免 | 暴击增益 | 新倍率 |
+|---|---|---|---|
+| 1.5 | 0% | 0.5 | 1.5 |
+| 1.5 | 40% | 0.3 | **1.3** |
+| 1.5 | 100% | 0 | **1.0**（暴击失效） |
+| 2.0 | 50% | 0.5 | **1.5** |
+
+- **非暴击完全不受影响**
+- 减免 100% 时暴击失效，但**不会低于不暴击的伤害**
+- 超量减免（>100%）被钳在 1.0
+
+### 暴击伤害的低值与下限
+
+`crit_damage` 与 `crit_damage_bonus` **都允许为负**，用于表达减益效果。
+暴击区有**硬下限 1.0**：
+
+```
+critZone = max(1.0, 削减后的倍率)
 ```
 
 因此无论暴击伤害被削减到多低，**暴击永远不会比不暴击造成更低的伤害**。
-例：暴击伤害 `1.5`，吃一个 `-1.0` 的减益 → 存储值 `0.5` → 实际生效 `1.0`（暴击无额外收益）。
-
-> 存储值与生效值是分开的：`DamageContext.critDamage()` 返回原始存储值（可能低于 1.0），
-> 下限钳制发生在 `DamagePipeline.computeZones()`。这样其他 mod 仍能读到真实的暴击伤害数值
-> 用于界面显示或进一步计算。
+例：暴击伤害 `1.5`，吃一个 `-1.0` 的减益 → 倍率 `0.5` → 实际生效 `1.0`（暴击无额外收益）。
 
 ---
 
@@ -299,6 +343,45 @@ ctx.overrideFinalDamage(42.0D); // 跳过乘区运算
 
 任何乘区抛出异常都会被管线捕获并记录，**不会**让伤害归零——
 一个第三方 mod 的 bug 不应该瘫痪整个伤害系统。
+
+### 5.6 给武器、装备与饰品添加效果
+
+想给某件物品挂上属性加成，不必写乘区、也不必覆盖原版物品数据，
+用 `ItemEffectApi` 登记即可。效果在**物品属性被查询时**生效，
+也就是「装备或持有时」——物品躺在背包里不会被查询，因此不会凭空生效。
+
+```java
+// 钻石剑 +15% 攻击力、+10% 暴击率（主手、饰品栏都生效）
+ItemEffectApi.forItem(Items.DIAMOND_SWORD)
+        .modifier(DMAttributes.ATTACK_POWER_PERCENT, 0.15D)
+        .modifier(DMAttributes.CRIT_CHANCE, 0.10D)
+        .register();
+
+// 全部剑类 +20% 暴击伤害，仅主手
+ItemEffectApi.forTag(ResourceLocation.withDefaultNamespace("swords"))
+        .slot(ItemEffectDefinition.SlotGroup.MAINHAND)
+        .modifier(DMAttributes.CRIT_DAMAGE_BONUS, 0.20D)
+        .register();
+
+// 一枚戒指 +5 攻击力，只在 Curios 的 ring 槽生效
+ItemEffectApi.forItem(MyItems.RUBY_RING)
+        .curioOnly("ring")
+        .modifier(DMAttributes.ATTACK_POWER_FLAT, 5.0D)
+        .register();
+```
+
+槽位是**两个互相独立的维度**，因为饰品槽标识（`head`、`feet`、`body`……）
+与原版槽位名存在重名，混在一个字段里无法表达：
+
+| 维度 | 取值 | 说明 |
+|---|---|---|
+| `slot(...)` | `ANY` / `NONE` / `MAINHAND` / `OFFHAND` / `HAND` / `ARMOR` / `HEAD` / `CHEST` / `LEGS` / `FEET` | 原版槽位 |
+| `curioSlot(...)` | 任意饰品槽标识（`ring`、`necklace`、`belt`……） | 饰品槽 |
+
+只写 `slot` 不写 `curioSlot` 时的默认推导：`ANY` → 原版任意槽位 **+** 全部饰品槽；
+其余取值为原版限定，不作用于饰品栏（写 `mainhand` 却仍在戒指上生效是违背直觉的）。
+
+同样的效果也可以**写在数据文件里**，见 [物品效果](#物品效果)。
 
 ---
 
@@ -576,6 +659,47 @@ DamageTypeRegistry.registerContributor(
 | `formula` | 公式文本 |
 | `requires` | **变量白名单**，公式只能引用这里声明的变量 |
 
+### 物品效果
+
+`itemEffects` 数组用于给武器、装备与饰品登记默认属性加成，
+适合整合包在不改代码、不覆盖原版物品数据的前提下调整平衡。
+
+```json
+"itemEffects": [
+  {
+    "target": "minecraft:diamond_sword",
+    "attribute": "damagemodernization:attack_power_percent",
+    "amount": 0.15,
+    "operation": "add_value",
+    "slot": "mainhand"
+  },
+  {
+    "target": "minecraft:golden_ingot",
+    "attribute": "damagemodernization:attack_power_flat",
+    "amount": 5.0,
+    "slot": "none",
+    "curioSlot": "ring"
+  }
+]
+```
+
+| 字段 | 必填 | 说明 |
+|---|---|---|
+| `target` | 是 | 物品 id（`minecraft:diamond_sword`），或 `#` 开头的物品标签（`#minecraft:swords`） |
+| `attribute` | 是 | 本 mod 的属性 id |
+| `amount` | 否 | 数值，默认 `0` |
+| `operation` | 否 | `add_value`（默认）/ `add_multiplied_base` / `add_multiplied_total` |
+| `slot` | 否 | 原版槽位：`any`（默认）/ `none` / `mainhand` / `offhand` / `hand` / `armor` / `head` / `chest` / `legs` / `feet` |
+| `curioSlot` | 否 | 饰品槽；不写则按 `slot` 推导（`any` → 全部饰品槽，否则不作用于饰品栏）。`any` 或 `*` = 全部饰品槽，`none` = 不作用于饰品栏，其余为 Curios 槽位标识（可带 `curios:` 前缀） |
+| `comment` | 否 | 说明文本 |
+
+**校验行为**（宁可明确报错，也不静默生效）：
+
+- `slot` 写了无法识别的值时，该条被**跳过**并记录错误，
+  而不是兜底成 `any` 把效果放大到所有槽位；
+- `slot` 与 `curioSlot` 同时为「不生效」时判为非法，避免写出一条永不生效的配置；
+- 引用了不存在的属性时跳过并记录错误。
+
 ### 公式语法
 
 支持四则运算、括号、比较、逻辑、三元与常用函数：
@@ -725,6 +849,30 @@ k = 0   → 超出部分恒为 0.5，不再衰减
   护甲按比例减免时最终扣血量随之变化。
 - **投射物伤害（箭、火球）不应用攻击力属性**，因为它们是直接实体，
   拥有独立的基础伤害；只有生物直接近战攻击才读取攻击力属性。
+- **饰品栏（Curios）需要单独适配**，这不是本 mod 的偏好而是 Curios 的实现决定的：
+  Curios **不读取**原版的 `ATTRIBUTE_MODIFIERS` 组件，它用自己的
+  `curio:attributes` 组件。实测反编译确认其取值路径为
+  `stack.getOrDefault(CURIOS_ATTRIBUTE_MODIFIERS, EMPTY)`。
+
+  因此只监听原版 `ItemAttributeModifierEvent` 对饰品**无效**，
+  本 mod 额外监听 Curios 自己的 `CurioAttributeModifierEvent`。
+  Curios 是**可选**依赖：
+
+  - 编译期用 `compileOnly`（`libs/curios-neoforge-9.5.1+1.21.1.jar`），
+    因此代码是正常类型化写法，不是到处反射；
+  - 运行时用 `ModList` 做字符串判断，**没装 Curios 时引用其类型的内部类
+    不会被加载**，不会出现 `NoClassDefFoundError`。
+
+  实测（`CuriosApi.getAttributeModifiers` 真实查询）：
+
+  | 场景 | 预期 | 结果 |
+  |---|---|---|
+  | `curioOnly("ring")` 的戒指查 `ring` 槽 | 命中 | 命中 |
+  | 同一枚戒指查 `belt` 槽 | 不命中 | 不命中 |
+  | 默认 `any` 效果的钻石剑查 `ring` 槽 | 命中 | 命中 |
+  | `slot=mainhand` 的效果 | 不作用于饰品栏 | 不作用于饰品栏 |
+  | 仅饰品效果出现在原版属性组件里 | 不应出现 | 未出现 |
+
 - 内置乘区可以被注销替换：`BuiltInZones.unregisterAll()`，
   然后用自定义实现注册同名乘区。
 
@@ -737,8 +885,14 @@ com.vestudio.dmmod
 ├── DamageModernization           mod 入口，属性注册、属性注入与数据加载
 ├── Config                        全部配置项
 ├── api
-│   ├── DMAttributes              十个属性的定义与公式变量名映射
+│   ├── DMAttributes              十五个属性的定义与公式变量名映射
 │   ├── PercentDisplayAttribute   百分比显示属性
+│   ├── damagetype                伤害类型 API
+│   │   ├── DamageTypeSet         类型集合（可同时成立，with() 为追加）
+│   │   ├── DamageTypeRegistry    标签映射与贡献者注册
+│   │   └── DamageTypeContributor 供其他 mod 追加类型
+│   ├── item
+│   │   └── ItemEffectApi         给武器/装备/饰品添加效果的公共接口
 │   └── zone
 │       ├── IDamageZone           乘区扩展接口
 │       ├── DamageContext         伤害上下文
@@ -753,6 +907,8 @@ com.vestudio.dmmod
 │   ├── AttributeDefinition       属性定义（含校验）
 │   ├── ModData                   数据文件根结构
 │   ├── DataRepository            数据文件加载与仓库
+│   ├── ItemEffectDefinition      物品效果定义（原版槽位 × 饰品槽两个维度）
+│   ├── ItemEffectRepository      物品效果仓库（数据文件 + 运行时注册）
 │   └── ZoneEvaluator             按作用域求值乘区，管理变量注入
 └── damage
     ├── ZoneIds                   内置乘区 id 常量
@@ -762,6 +918,8 @@ com.vestudio.dmmod
     ├── DamageFormulaEvaluator    伤害乘区求值（主路径，数据驱动）
     ├── TakenFormulaEvaluator     增减伤乘区求值（含攻守双方贡献）
     ├── BuiltInDamageTypes        内置伤害类型注册（物理/魔法/火焰）
+    ├── ItemEffectHandler         把物品效果追加到原版物品属性
+    ├── CuriosCompat              饰品栏适配（内部类隔离，未安装时不加载）
     ├── HealthCalculator          生命值计算（**兜底**：数据缺失时启用）
     ├── AttackContext             攻击上下文传递
     ├── DamageEventHandler        接管原版伤害管线与每秒刷新
@@ -772,10 +930,6 @@ com.vestudio.dmmod
         ├── CritZone              同上
         └── BuiltInZones          内置乘区注册入口
 
-com.vestudio.dmmod.api.damagetype（伤害类型 API）
-├── DamageTypeSet                 类型集合（可同时成立，with() 为追加）
-├── DamageTypeRegistry            标签映射与贡献者注册
-└── DamageTypeContributor         供其他 mod 追加类型
 
 com.vestudio.dmmod.client（仅客户端）
 ├── StatsPanelKeybind             按键绑定与面板显隐

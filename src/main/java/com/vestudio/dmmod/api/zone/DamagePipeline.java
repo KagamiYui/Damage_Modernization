@@ -6,6 +6,7 @@ import javax.annotation.Nullable;
 
 import com.vestudio.dmmod.Config;
 import com.vestudio.dmmod.DamageModernization;
+import com.vestudio.dmmod.api.DMAttributes;
 
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.LivingEntity;
@@ -149,8 +150,29 @@ public final class DamagePipeline {
         // 暴击伤害的加成允许为负（减益效果），但乘区内有下限：
         // 生效值不低于 1.0。这样「暴击」永远不会比不暴击造成更低的伤害，
         // 即便暴击伤害属性被削减到 1.0 以下。
-        double critZone = ctx.isCritical() ? Math.max(1.0D, ctx.critDamage()) : 1.0D;
+        //
+        // 受害者的「暴击伤害减免」在此<b>直接削减系数</b>：
+        // 只削减暴击增益（倍率−1）那部分，因此不会动到非暴击伤害。
+        double critZone = 1.0D;
+        if (ctx.isCritical()) {
+            // 倍率本体 + 加算子项（与数据驱动公式保持一致的语义）。
+            double critMultiplier = ctx.critDamage();
+            LivingEntity attacker = ctx.attacker();
+            if (attacker != null) {
+                var bonusAttr = attacker.getAttribute(DMAttributes.CRIT_DAMAGE_BONUS);
+                if (bonusAttr != null) {
+                    critMultiplier += bonusAttr.getValue();
+                }
+            }
 
+            LivingEntity victim = ctx.victim();
+            if (victim != null) {
+                var reductionAttr = victim.getAttribute(DMAttributes.CRIT_DAMAGE_TAKEN_REDUCTION);
+                double reduction = reductionAttr == null ? 0.0D : reductionAttr.getValue();
+                critMultiplier = 1.0D + (critMultiplier - 1.0D) * (1.0D - reduction);
+            }
+            critZone = Math.max(1.0D, critMultiplier);
+        }
         double result = attackPowerZone * multiplierZone * critZone;
 
         // 防御性收尾：非有限值或负数一律归零。

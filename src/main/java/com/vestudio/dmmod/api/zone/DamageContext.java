@@ -56,6 +56,9 @@ public final class DamageContext {
     /** 本次是否暴击。 */
     private boolean critical;
 
+    /** 本次攻击的实际暴击倍率；不暴击时为 1.0。 */
+    private double critMultiplier = 1.0D;
+
     /** 暴击伤害倍率。 */
     private double critDamage;
 
@@ -207,6 +210,30 @@ public final class DamageContext {
     public void addAttackPowerPercent(double delta) {
         if (Double.isFinite(delta)) {
             this.attackPowerPercent += delta;
+        }
+    }
+
+    /**
+     * {@return 本次攻击的<b>实际暴击倍率</b>}
+     *
+     * <p>不暴击时为 1.0，暴击时为暴击区算出的倍率。
+     * 注意该值<b>已包含受害方的暴击伤害减免</b>——
+     * 减免是在暴击区内直接作用于系数，而不是事后在承伤区再乘一次。
+     */
+    public double critMultiplier() {
+        return critMultiplier;
+    }
+
+    /**
+     * 记录本次攻击的实际暴击倍率。
+     *
+     * <p>由伤害公式的暴击区在求值后调用。
+     *
+     * @param value 暴击倍率（不暴击时为 1.0）
+     */
+    public void setCritMultiplier(double value) {
+        if (Double.isFinite(value) && value >= 1.0D) {
+            this.critMultiplier = value;
         }
     }
 

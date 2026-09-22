@@ -214,6 +214,26 @@ public final class DMAttributes {
                     .setSyncable(true));
 
     /**
+     * 暴击伤害加成：作为<b>暴击区内部</b>的加算子项。
+     *
+     * <p>与 {@link #CRIT_DAMAGE} 的区别是运算方式：
+     * <ul>
+     *   <li>{@code crit_damage} 是<b>倍率本体</b>（默认 1.5），多个来源相乘；</li>
+     *   <li>本属性是<b>加算子项</b>，多个来源相加后并入倍率。</li>
+     * </ul>
+     * 因此「+20% 爆伤」与「+30% 爆伤」以本属性表达时合计 +50%，
+     * 而不是相乘。
+     *
+     * <p>它同样参与「暴击增益」的计算，因此会受到受害者的暴击伤害减免影响。
+     */
+    public static final Holder<Attribute> CRIT_DAMAGE_BONUS = ATTRIBUTES.register(
+            "crit_damage_bonus",
+            () -> new PercentDisplayAttribute(
+                    "attribute.damagemodernization.crit_damage_bonus",
+                    0.0D, -1.0D, 1_000.0D)
+                    .setSyncable(true));
+
+    /**
      * 物理伤害减免：受到物理伤害时的减免比例。
      *
      * <p>作为<b>承伤乘区</b>的子项，只在物理伤害时生效。
@@ -224,6 +244,27 @@ public final class DMAttributes {
             () -> new PercentDisplayAttribute(
                     "attribute.damagemodernization.physical_resistance",
                     0.0D, -1.0D, 1.0D)
+                    .setSyncable(true));
+
+    /**
+     * 受到的暴击伤害减免：只削减<b>暴击带来的那部分增益</b>。
+     *
+     * <p>与普通减伤不同，它不能直接乘在最终伤害上——那会把非暴击部分也减掉。
+     * 正确做法是把暴击增益部分按比例削减：
+     * <pre>
+     *   暴击增益 = 暴击倍率 − 1        （1.5 倍即增益 0.5）
+     *   削减后   = 增益 × (1 − 本属性)
+     *   新倍率   = 1 + 削减后
+     *   承伤乘数 = 新倍率 / 原倍率
+     * </pre>
+     * 因此减免 40% 时：增益 0.5 → 0.3，倍率 1.5 → 1.3。
+     * 减免 100% 时增益归零、暴击失效，但<b>不会低于不暴击的伤害</b>。
+     */
+    public static final Holder<Attribute> CRIT_DAMAGE_TAKEN_REDUCTION = ATTRIBUTES.register(
+            "crit_damage_taken_reduction",
+            () -> new PercentDisplayAttribute(
+                    "attribute.damagemodernization.crit_damage_taken_reduction",
+                    0.0D, 0.0D, 1.0D)
                     .setSyncable(true));
 
     // ==================================================================
@@ -270,6 +311,7 @@ public final class DMAttributes {
                 DAMAGE_MULTIPLIER,
                 CRIT_CHANCE,
                 CRIT_DAMAGE,
+                CRIT_DAMAGE_BONUS,
                 PHYSICAL_AMPLIFIER,
                 MAGIC_AMPLIFIER);
     }
@@ -280,6 +322,7 @@ public final class DMAttributes {
     public static List<Holder<Attribute>> defenseAttributes() {
         return List.of(
                 PHYSICAL_RESISTANCE,
+                CRIT_DAMAGE_TAKEN_REDUCTION,
                 BASE_HEALTH,
                 HEALTH_PERCENT,
                 HEALTH_FLAT);

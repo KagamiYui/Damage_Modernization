@@ -76,6 +76,11 @@ public class DamageModernization {
         // 放在构造阶段，确保任何伤害结算发生前已就绪。
         com.vestudio.dmmod.formula.DataRepository.load(
                 net.neoforged.fml.loading.FMLPaths.CONFIGDIR.get());
+
+        // 若装有饰品栏 mod，额外接上它的属性事件。
+        // 饰品栏不读取原版属性组件，只有走它自己的事件才会生效。
+        // 未安装时本调用只打印一条日志，不加载任何 Curios 类型。
+        com.vestudio.dmmod.damage.CuriosCompat.ensureRegistered();
     }
 
     /**
@@ -114,11 +119,14 @@ public class DamageModernization {
             addIfAbsent(event, type, DMAttributes.PHYSICAL_AMPLIFIER);
             addIfAbsent(event, type, DMAttributes.MAGIC_AMPLIFIER);
             addIfAbsent(event, type, DMAttributes.PHYSICAL_RESISTANCE);
+            addIfAbsent(event, type, DMAttributes.CRIT_DAMAGE_TAKEN_REDUCTION);
 
             // 这三个属性的默认值由配置驱动。
             addOrDefault(event, type, DMAttributes.DAMAGE_MULTIPLIER, damageMultiplier);
             addOrDefault(event, type, DMAttributes.CRIT_CHANCE, critChance);
             addOrDefault(event, type, DMAttributes.CRIT_DAMAGE, critDamage);
+            // 暴击伤害的加算子项（与倍率本体区分）。
+            addIfAbsent(event, type, DMAttributes.CRIT_DAMAGE_BONUS);
 
             // 生命值体系：基础生命值默认取原版血量，
             // 使「基础生命值 = max_health」成立，百分比才有正确基准。

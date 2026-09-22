@@ -54,6 +54,14 @@ public final class DamageFormulaEvaluator {
         // 攻击者的属性（环境伤害没有攻击者，此时全部注入 0）。
         evaluator.attributes(attacker, DMAttributes.attackAttributes());
 
+        // 受害者的「暴击伤害减免」。
+        // 它虽然是防守方属性，但按需求应当在<b>暴击区内直接削减系数</b>，
+        // 因此这里必须让伤害公式读到它。
+        if (context.victim() != null) {
+            evaluator.attributes(context.victim(),
+                    java.util.List.of(DMAttributes.CRIT_DAMAGE_TAKEN_REDUCTION));
+        }
+
         // 上下文变量。
         evaluator.context("is_critical", context.isCritical() ? 1.0D : 0.0D);
         evaluator.context("is_environmental", context.isEnvironmental() ? 1.0D : 0.0D);
@@ -70,6 +78,13 @@ public final class DamageFormulaEvaluator {
         evaluator.context("crit_bonus", Config.CRIT_ZONE_DAMAGE_BONUS.get());
 
         Map<String, Double> outputs = evaluator.evaluate(ZoneScope.DAMAGE);
+
+        // 把暴击区的实际结果回写到上下文，
+        // 供承伤侧计算「削减暴击增益」时参照。
+        Double critOutput = outputs.get(ZoneIds.CRITICAL);
+        if (critOutput != null) {
+            context.setCritMultiplier(critOutput);
+        }
 
         double result = 1.0D;
         for (double multiplier : outputs.values()) {

@@ -67,7 +67,9 @@ public final class TakenFormulaEvaluator {
                 // 若漏掉这些变量，公式会因「变量未提供」而<b>整个被跳过</b>。
                 .context("amplifier_bonus", Config.DAMAGE_AMPLIFIER_ZONE_BONUS.get())
                 .context("multiplier_factor", Config.DAMAGE_MULTIPLIER_ZONE_FACTOR.get())
-                .context("crit_bonus", Config.CRIT_ZONE_DAMAGE_BONUS.get());
+                .context("crit_bonus", Config.CRIT_ZONE_DAMAGE_BONUS.get())
+                // 本次攻击的实际暴击倍率，供「削减暴击增益」参照。
+                .context("crit_multiplier", context.critMultiplier());
 
         // 伤害类型：与伤害公式使用同一套变量名（has_xxx）。
         DamageFormulaEvaluator.injectDamageTypes(evaluator, context);

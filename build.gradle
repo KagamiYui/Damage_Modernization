@@ -134,6 +134,12 @@ dependencies {
     // Example project dependency using a sister or child project:
     // implementation project(":myproject")
 
+    // 可选依赖：饰品栏（Curios）。
+    // 只在编译期可见，保证运行时对 Curios 保持「可选」——
+    // 没装 Curios 时，引用它类型的内部类不会被 JVM 加载。
+    // 换版本时替换 libs/ 下的 jar 即可。
+    compileOnly files("libs/curios-neoforge-9.5.1+1.21.1.jar")
+
     // For more info:
     // http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
     // http://www.gradle.org/docs/current/userguide/dependency_management.html

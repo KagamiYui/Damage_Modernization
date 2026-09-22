@@ -226,7 +226,88 @@ public final class DataRepository {
             zones.add(parseZone(e.getAsJsonObject(), where));
         }
 
+        // 物品效果由独立仓库管理，这里直接安装。
+        List<ItemEffectDefinition> itemEffects = new ArrayList<>();
+        for (JsonElement e : arrayOf(root, "itemEffects")) {
+            ItemEffectDefinition def = parseItemEffect(e.getAsJsonObject(), where);
+            if (def == null) {
+                continue;
+            }
+            List<String> errors = def.validate();
+            if (!errors.isEmpty()) {
+                DamageModernization.LOGGER.error(
+                        "{} 中的物品效果不合法，已跳过: {} ({})",
+                        where, def.attribute(), String.join("; ", errors));
+                continue;
+            }
+            itemEffects.add(def);
+        }
+        ItemEffectRepository.install(itemEffects);
+
         return new ModData(attributes, zones);
+    }
+
+    /**
+     * 解析一条物品效果定义。
+     *
+     * @param obj   JSON 对象
+     * @param where 来源说明
+     * @return 物品效果定义
+     */
+    private static ItemEffectDefinition parseItemEffect(JsonObject obj, String where) {
+        String raw = requireString(obj, "target", where, "item");
+        ResourceLocation item = null;
+        ResourceLocation tag = null;
+        if (raw.startsWith("#")) {
+            tag = ResourceLocation.parse(raw.substring(1));
+        } else {
+            item = ResourceLocation.parse(raw);
+        }
+
+        ResourceLocation attribute = requireId(obj, "attribute", where);
+        double amount = obj.has("amount") ? obj.get("amount").getAsDouble() : 0.0D;
+        String operation = optString(obj, "operation", "add_value");
+
+        // 原版槽位：无法识别时直接跳过，避免把写错的槽位名静默放大成「任意槽位」。
+        String slotRaw = optString(obj, "slot", "any");
+        ItemEffectDefinition.SlotGroup slot = ItemEffectDefinition.SlotGroup.byId(slotRaw);
+        if (slot == null) {
+            DamageModernization.LOGGER.error(
+                    "{} 中的物品效果槽位无法识别，已跳过该条: slot={} (可用值见文档)",
+                    where, slotRaw);
+            return null;
+        }
+
+        // 饰品槽：null 表示未填写，由 ItemEffectDefinition 按原版槽位推导默认值。
+        String curioSlot = obj.has("curioSlot") && !obj.get("curioSlot").isJsonNull()
+                ? obj.get("curioSlot").getAsString()
+                : null;
+
+        String comment = optString(obj, "comment", "");
+
+        return new ItemEffectDefinition(item, tag, attribute, amount, operation,
+                slot, curioSlot, comment);
+    }
+
+    /**
+     * 读取必填字段，允许给多个候选名。
+     *
+     * @param obj     JSON 对象
+     * @param key     主字段名
+     * @param where   来源说明
+     * @param aliases 备用字段名
+     * @return 字符串
+     */
+    private static String requireString(JsonObject obj, String key, String where, String... aliases) {
+        if (obj.has(key) && !obj.get(key).isJsonNull()) {
+            return obj.get(key).getAsString();
+        }
+        for (String alias : aliases) {
+            if (obj.has(alias) && !obj.get(alias).isJsonNull()) {
+                return obj.get(alias).getAsString();
+            }
+        }
+        throw new IllegalStateException(where + " 缺少必填字段: " + key);
     }
 
     /**
