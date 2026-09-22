@@ -1,0 +1,47 @@
+{
+  "replace": false,
+  "values": [
+    "minecraft:magic",
+    "minecraft:indirect_magic",
+    "minecraft:dragon_breath",
+    "minecraft:sonic_boom",
+    "minecraft:wither",
+    "minecraft:wither_skull",
+
+    "minecraft:explosion",
+    "minecraft:player_explosion",
+
+    "minecraft:in_fire",
+    "minecraft:on_fire",
+    "minecraft:campfire",
+    "minecraft:lava",
+    "minecraft:hot_floor",
+    "minecraft:lightning_bolt",
+
+    "minecraft:freeze",
+    "minecraft:fall",
+    "minecraft:fly_into_wall",
+    "minecraft:drown",
+    "minecraft:starve",
+    "minecraft:cactus",
+    "minecraft:sweet_berry_bush",
+    "minecraft:stalagmite",
+    "minecraft:cramming",
+    "minecraft:in_wall",
+    "minecraft:dry_out",
+
+    "minecraft:out_of_world",
+    "minecraft:outside_border",
+    "minecraft:generic",
+    "minecraft:generic_kill",
+    "minecraft:bad_respawn_point",
+
+    "minecraft:thorns",
+    "minecraft:spit",
+    "minecraft:sting",
+
+    "minecraft:falling_anvil",
+    "minecraft:falling_block",
+    "minecraft:falling_stalactite"
+  ]
+}

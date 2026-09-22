@@ -1,0 +1,207 @@
+{
+  "_comment": "Damage_Modernization 数据文件。放在 config/damagemodernization/ 下，可随意增删字段；缺省字段使用默认值。",
+  "_notes": [
+    "本文件复现了 mod 内置的默认数值与公式，可作为改写的起点。",
+    "attributes: 定义属性的默认值、取值范围与显示方式。",
+    "  default      固定默认值",
+    "  vanillaSource 默认值取自原版属性（按生物类型），与 default 二选一",
+    "zones: 定义乘区（通用的公式单元）。",
+    "  scope       所属体系: damage(伤害) / health(生命值)",
+    "  priority    执行顺序，越小越先执行",
+    "  scale       全局缩放，作用在公式输出之上",
+    "  requires    变量白名单：公式只能引用这里声明的变量"
+  ],
+
+  "attributes": [
+    {
+      "id": "damagemodernization:base_attack_power",
+      "default": 1.0,
+      "min": 0.0,
+      "max": 1000000.0,
+      "display": "plain",
+      "sentiment": "positive",
+      "syncable": true,
+      "comment": "基础攻击力：含武器贡献，空手 1、钻石剑 7"
+    },
+    {
+      "id": "damagemodernization:attack_power_percent",
+      "default": 0.0,
+      "min": -1.0,
+      "max": 1000.0,
+      "display": "percent",
+      "comment": "攻击力百分比提升，作用于基础攻击力"
+    },
+    {
+      "id": "damagemodernization:attack_power_flat",
+      "default": 0.0,
+      "min": -1000000.0,
+      "max": 1000000.0,
+      "display": "plain",
+      "comment": "固定攻击力"
+    },
+    {
+      "id": "damagemodernization:damage_amplifier",
+      "default": 0.0,
+      "min": -1.0,
+      "max": 1000.0,
+      "display": "percent",
+      "comment": "伤害提升（加算区）"
+    },
+    {
+      "id": "damagemodernization:physical_amplifier",
+      "default": 0.0,
+      "min": -1.0,
+      "max": 1000.0,
+      "display": "percent",
+      "comment": "物理伤害提升：伤害提升区的子项，仅在带物理类型时计入"
+    },
+    {
+      "id": "damagemodernization:magic_amplifier",
+      "default": 0.0,
+      "min": -1.0,
+      "max": 1000.0,
+      "display": "percent",
+      "comment": "魔法伤害提升：伤害提升区的子项，仅在带魔法类型时计入（原版药水效果即属魔法）"
+    },
+    {
+      "id": "damagemodernization:physical_resistance",
+      "default": 0.0,
+      "min": -1.0,
+      "max": 1.0,
+      "display": "percent",
+      "sentiment": "negative",
+      "comment": "物理伤害减免：承伤乘区的子项，仅在物理伤害时生效"
+    },
+    {
+      "id": "damagemodernization:damage_multiplier",
+      "default": 1.0,
+      "min": 0.0,
+      "max": 1000.0,
+      "display": "percent",
+      "comment": "伤害倍率（乘算区）"
+    },
+    {
+      "id": "damagemodernization:crit_chance",
+      "default": 0.05,
+      "min": 0.0,
+      "max": 1.0,
+      "display": "percent",
+      "comment": "暴击率"
+    },
+    {
+      "id": "damagemodernization:crit_damage",
+      "default": 1.5,
+      "min": 0.0,
+      "max": 1000.0,
+      "display": "percent",
+      "comment": "暴击伤害倍率"
+    },
+    {
+      "id": "damagemodernization:base_health",
+      "vanillaSource": "minecraft:max_health",
+      "min": 0.0,
+      "max": 1000000.0,
+      "display": "plain",
+      "comment": "基础生命值：由生命值乘区算出，默认等于原版血量"
+    },
+    {
+      "id": "damagemodernization:health_percent",
+      "default": 0.0,
+      "min": -1.0,
+      "max": 1000.0,
+      "display": "percent",
+      "comment": "生命值百分比提升"
+    },
+    {
+      "id": "damagemodernization:health_flat",
+      "default": 0.0,
+      "min": -1000000.0,
+      "max": 1000000.0,
+      "display": "plain",
+      "comment": "固定生命值"
+    }
+  ],
+
+  "zones": [
+    {
+      "scope": "damage",
+      "id": "attack_power",
+      "priority": -500,
+      "scale": 1.0,
+      "formula": "base_attack_power * (1 + attack_power_percent) + attack_power_flat",
+      "requires": [
+        "base_attack_power",
+        "attack_power_percent",
+        "attack_power_flat"
+      ],
+      "comment": "攻击力区：输出绝对点数（也是乘数）"
+    },
+    {
+      "scope": "damage",
+      "id": "multiplier",
+      "priority": 500,
+      "scale": 1.0,
+      "formula": "damage_multiplier * multiplier_factor",
+      "requires": [
+        "damage_multiplier",
+        "multiplier_factor"
+      ],
+      "comment": "伤害倍率区：独立乘数"
+    },
+    {
+      "scope": "damage",
+      "id": "critical",
+      "priority": 750,
+      "scale": 1.0,
+      "formula": "is_critical ? max(1, crit_damage + crit_bonus) : 1",
+      "requires": [
+        "is_critical",
+        "crit_damage",
+        "crit_bonus"
+      ],
+      "comment": "暴击区：不暴击时为 1，暴击时取下限 1 的暴击倍率"
+    },
+    {
+      "scope": "health",
+      "id": "base_scale",
+      "priority": 0,
+      "scale": 1.0,
+      "formula": "base_health * health_scale",
+      "requires": [
+        "base_health",
+        "health_scale"
+      ],
+      "comment": "基础生命值缩放区：base_health 已含装备等加成，再乘以全局缩放系数"
+    },
+    {
+      "scope": "health",
+      "id": "bonus",
+      "priority": 500,
+      "scale": 1.0,
+      "formula": "base_health * (1 + health_percent) + health_flat",
+      "requires": [
+        "base_health",
+        "health_percent",
+        "health_flat"
+      ],
+      "comment": "生命值提升区：百分比与固定值"
+    },
+    {
+      "scope": "taken",
+      "id": "amplifier",
+      "priority": 0,
+      "scale": 1.0,
+      "formula": "amplifier(damage_amplifier + amplifier_bonus + (has_physical ? physical_amplifier : 0) + (has_magic ? magic_amplifier : 0) - (has_physical ? physical_resistance : 0))",
+      "requires": [
+        "damage_amplifier",
+        "amplifier_bonus",
+        "has_physical",
+        "physical_amplifier",
+        "has_magic",
+        "magic_amplifier",
+        "physical_resistance"
+      ],
+      "comment": "增减伤区（加算区）：攻击方的各类增伤与受害方的减伤相加成一个总和，再由 amplifier() 换算。这是增伤与减伤统一的乘区——前 50% 减伤线性生效，超出部分走对数曲线，结果恒大于 0。若一次伤害同时具有多种类型，对应子项会一并计入"
+    }
+  ]
+}
