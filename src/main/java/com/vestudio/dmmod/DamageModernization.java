@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
 import com.vestudio.dmmod.api.DMAttributes;
+import com.vestudio.dmmod.damage.BuiltInDamageTypes;
 import com.vestudio.dmmod.damage.zone.BuiltInZones;
 
 import net.minecraft.world.entity.EntityType;
@@ -58,6 +59,10 @@ public class DamageModernization {
         // 因此模组包可以注销内置实现并替换为自己的版本。
         BuiltInZones.registerAll();
 
+        // 注册内置伤害类型（物理 / 魔法 / 火焰）。
+        // 必须在任何伤害结算前完成，否则类型判定会缺少标签映射。
+        BuiltInDamageTypes.registerAll();
+
         modEventBus.addListener(this::commonSetup);
 
         // 把「基础攻击力」等属性注入到所有生物身上，
@@ -66,6 +71,11 @@ public class DamageModernization {
 
         // 注册配置。
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+
+        // 加载数据文件（属性定义、乘区与公式）。
+        // 放在构造阶段，确保任何伤害结算发生前已就绪。
+        com.vestudio.dmmod.formula.DataRepository.load(
+                net.neoforged.fml.loading.FMLPaths.CONFIGDIR.get());
     }
 
     /**
@@ -99,6 +109,11 @@ public class DamageModernization {
             addIfAbsent(event, type, DMAttributes.ATTACK_POWER_PERCENT);
             addIfAbsent(event, type, DMAttributes.ATTACK_POWER_FLAT);
             addIfAbsent(event, type, DMAttributes.DAMAGE_AMPLIFIER);
+
+            // 伤害类型相关的子项：物理增伤、魔法增伤（攻方）与物理减伤（守方）。
+            addIfAbsent(event, type, DMAttributes.PHYSICAL_AMPLIFIER);
+            addIfAbsent(event, type, DMAttributes.MAGIC_AMPLIFIER);
+            addIfAbsent(event, type, DMAttributes.PHYSICAL_RESISTANCE);
 
             // 这三个属性的默认值由配置驱动。
             addOrDefault(event, type, DMAttributes.DAMAGE_MULTIPLIER, damageMultiplier);

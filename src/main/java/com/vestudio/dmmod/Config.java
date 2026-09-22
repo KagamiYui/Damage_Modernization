@@ -66,8 +66,23 @@ public final class Config {
     // ==================================================================
 
     public static final ModConfigSpec.BooleanValue ENABLE_AMPLIFIER_ZONE = BUILDER
-            .comment("是否启用伤害提升区（加算区）。")
+            .comment(
+                    "是否启用伤害提升区（加算区）。",
+                    "该乘区同时容纳攻击方的增伤与受害方的减伤，二者相加成一个总和后再换算。")
             .define("damageAmplifierZone.enabled", true);
+
+    public static final ModConfigSpec.DoubleValue REDUCTION_CURVE_COEFFICIENT = BUILDER
+            .comment(
+                    "减伤超出 50% 之后，对数曲线的陡峭程度。",
+                    "增减伤换算规则：",
+                    "  Σ ≥ -0.5        →  1 + Σ                   线性（面板比例即实际效果）",
+                    "  Σ < -0.5        →  0.5 / (1 + k·(|Σ|-0.5))  对数式衰减，恒大于 0",
+                    "本项即公式中的 k：",
+                    "  k = 2.0（默认）→ 减免 100% 时承伤 0.25，减免 200% 时承伤 0.125",
+                    "  k 越大         → 超出 50% 后衰减越快（堆减伤越不划算）",
+                    "  k 越小         → 衰减越慢（越接近但不等于免疫）",
+                    "k 为 0 时超出部分恒为 0.5（不再衰减）。")
+            .defineInRange("damageAmplifierZone.reductionCurveCoefficient", 2.0D, 0.0D, 100.0D);
 
     public static final ModConfigSpec.DoubleValue DAMAGE_AMPLIFIER_ZONE_BONUS = BUILDER
             .comment(
@@ -134,6 +149,19 @@ public final class Config {
                     "伤害倍率属性的默认值。",
                     "1.0 表示不影响伤害（默认）。")
             .defineInRange("defaults.damageMultiplier", 1.0D, 0.0D, 1000.0D);
+
+    // ==================================================================
+    // 生命值
+    // ==================================================================
+
+    public static final ModConfigSpec.DoubleValue HEALTH_SCALE = BUILDER
+            .comment(
+                    "基础生命值的全局缩放，作用于所有生物。",
+                    "1.0 表示保持原版血量（默认）；1.5 表示所有生物基础生命值 +50%。",
+                    "这是独立的缩放乘区，与「生命值百分比提升」互不影响：",
+                    "  基础生命值 = 原版血量 × 本系数",
+                    "  最终生命值 = 基础生命值 × (1 + 生命值百分比) + 固定生命值")
+            .defineInRange("health.baseScale", 1.0D, 0.0D, 1000.0D);
 
     // ==================================================================
     // 调试

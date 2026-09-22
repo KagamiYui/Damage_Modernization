@@ -66,6 +66,44 @@ public final class DamageContext {
     /** 连锁伤害标记，避免同一伤害被重复处理。 */
     private boolean processed;
 
+    /** 伤害类型集合的缓存（惰性解析，每次结算只算一次）。 */
+    @Nullable
+    private com.vestudio.dmmod.api.damagetype.DamageTypeSet damageTypes;
+
+    /**
+     * {@return 本次伤害的类型集合}
+     *
+     * <p>集合可包含多个类型（例如物理与魔法<b>同时</b>成立），
+     * 各类型对应的增伤会一并生效。
+     *
+     * <p>结果会被缓存：类型解析涉及标签查询与贡献者调用，
+     * 同一次结算中重复取用无需重算。
+     */
+    public com.vestudio.dmmod.api.damagetype.DamageTypeSet damageTypes() {
+        if (damageTypes == null) {
+            damageTypes = com.vestudio.dmmod.api.damagetype.DamageTypeSet.resolve(source, victim);
+        }
+        return damageTypes;
+    }
+
+    /**
+     * {@return 本次伤害是否带有指定类型}
+     *
+     * @param type 类型标识
+     */
+    public boolean hasDamageType(net.minecraft.resources.ResourceLocation type) {
+        return damageTypes().has(type);
+    }
+
+    /**
+     * {@return 是否属于物理伤害}
+     *
+     * <p>便捷方法，等价于 {@code hasDamageType(DamageTypeSet.PHYSICAL)}。
+     */
+    public boolean isPhysical() {
+        return hasDamageType(com.vestudio.dmmod.api.damagetype.DamageTypeSet.PHYSICAL);
+    }
+
     DamageContext(DamageSource source,
                   @Nullable LivingEntity attacker,
                   LivingEntity victim,

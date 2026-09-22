@@ -90,21 +90,57 @@ public final class DamagePipeline {
     /**
      * 四乘区公式本体。
      *
-     * <p>注意这里读取的是 {@link DamageContext} 中<b>已被各乘区修改过</b>的值，
+     * <h2>数据驱动优先</h2>
+     * 若数据文件提供了完整的伤害乘区定义，则<b>由公式求值</b>；
+     * 否则退回下面内置的硬编码公式。
+     * 这条退路保证数据文件缺失或写坏时，mod 依然能正常工作。
+     *
+     * <p>注意求值时读取的是 {@link DamageContext} 中<b>已被各乘区修改过</b>的值，
      * 因此公式代表的是「所有乘区贡献之和」，而不是固定的原版数值。
      *
      * @param ctx 上下文
      * @return 最终伤害
      */
     public static double computeZones(DamageContext ctx) {
+        // 优先走数据驱动的公式。
+        double damage;
+        if (com.vestudio.dmmod.damage.ZoneIds.damageZonesPresent()) {
+            damage = com.vestudio.dmmod.damage.DamageFormulaEvaluator.evaluate(ctx);
+        } else {
+            damage = computeZonesLegacy(ctx);
+        }
+
+        // 承伤公式（防守方）。
+        // 它只作用在伤害结果之上，不会回头改写攻击方的任何乘区，
+        // 因此攻守双方保持独立。
+        double taken = com.vestudio.dmmod.damage.TakenFormulaEvaluator.evaluate(ctx, damage);
+
+        double finalDamage = damage * taken;
+
+        if (!Double.isFinite(finalDamage) || finalDamage < 0.0D) {
+            return 0.0D;
+        }
+        return finalDamage;
+    }
+
+    /**
+     * 内置的硬编码公式，作为数据缺失时的退路。
+     *
+     * <h2>不含增减伤</h2>
+     * 「增伤与减伤」已合并为一个加算区并移入承伤侧
+     * （只有那里能同时读到攻守双方的贡献），因此这里<b>不再</b>乘增伤区，
+     * 否则会与承伤侧重复计算。
+     *
+     * @param ctx 上下文
+     * @return 最终伤害
+     */
+    private static double computeZonesLegacy(DamageContext ctx) {
         double attackPowerZone = ctx.baseAttackPower() * (1.0D + ctx.attackPowerPercent())
                 + ctx.attackPowerFlat();
 
         // 攻击力区的全局缩放：作用于整个乘区（含固定加值），
         // 让模组包可以用一个系数整体放大或压缩伤害区间。
         attackPowerZone *= Config.ATTACK_POWER_ZONE_SCALE.get();
-
-        double amplifierZone = 1.0D + ctx.damageAmplifier();
 
         double multiplierZone = ctx.damageMultiplier();
 
@@ -115,7 +151,7 @@ public final class DamagePipeline {
         // 即便暴击伤害属性被削减到 1.0 以下。
         double critZone = ctx.isCritical() ? Math.max(1.0D, ctx.critDamage()) : 1.0D;
 
-        double result = attackPowerZone * amplifierZone * multiplierZone * critZone;
+        double result = attackPowerZone * multiplierZone * critZone;
 
         // 防御性收尾：非有限值或负数一律归零。
         if (!Double.isFinite(result) || result < 0.0D) {

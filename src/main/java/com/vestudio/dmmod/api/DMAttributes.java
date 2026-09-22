@@ -1,5 +1,7 @@
 package com.vestudio.dmmod.api;
 
+import java.util.List;
+
 import com.vestudio.dmmod.Config;
 import com.vestudio.dmmod.DamageModernization;
 
@@ -184,6 +186,111 @@ public final class DMAttributes {
                     "attribute.damagemodernization.health_flat",
                     0.0D, -1_000_000.0D, 1_000_000.0D)
                     .setSyncable(true));
+
+    /**
+     * 物理伤害提升：作为<b>伤害提升区</b>的子项，只在物理伤害时计入。
+     *
+     * <p>采用加算语义：与通用增伤相加，而非相乘。
+     * 例如通用 +10% 与物理 +10% 合计为 +20%。
+     */
+    public static final Holder<Attribute> PHYSICAL_AMPLIFIER = ATTRIBUTES.register(
+            "physical_amplifier",
+            () -> new PercentDisplayAttribute(
+                    "attribute.damagemodernization.physical_amplifier",
+                    0.0D, -1.0D, 1_000.0D)
+                    .setSyncable(true));
+
+    /**
+     * 魔法伤害提升：作为<b>伤害提升区</b>的子项，只在带魔法类型时计入。
+     *
+     * <p>原版的药水与状态效果伤害（{@code magic}、{@code indirect_magic}）
+     * 即属于魔法类型。
+     */
+    public static final Holder<Attribute> MAGIC_AMPLIFIER = ATTRIBUTES.register(
+            "magic_amplifier",
+            () -> new PercentDisplayAttribute(
+                    "attribute.damagemodernization.magic_amplifier",
+                    0.0D, -1.0D, 1_000.0D)
+                    .setSyncable(true));
+
+    /**
+     * 物理伤害减免：受到物理伤害时的减免比例。
+     *
+     * <p>作为<b>承伤乘区</b>的子项，只在物理伤害时生效。
+     * 0.4 表示减免 40%（承伤乘数 0.6）。
+     */
+    public static final Holder<Attribute> PHYSICAL_RESISTANCE = ATTRIBUTES.register(
+            "physical_resistance",
+            () -> new PercentDisplayAttribute(
+                    "attribute.damagemodernization.physical_resistance",
+                    0.0D, -1.0D, 1.0D)
+                    .setSyncable(true));
+
+    // ==================================================================
+    // 公式变量
+    // ==================================================================
+
+    /**
+     * {@return 公式中引用某个属性时使用的变量名}
+     *
+     * <p>变量名即属性 ID 的路径部分，例如
+     * {@code damagemodernization:base_attack_power} → {@code base_attack_power}。
+     * 这样数据文件里的公式与属性定义能自然对应。
+     *
+     * @param attribute 属性
+     */
+    public static String variableName(Holder<Attribute> attribute) {
+        return attribute.unwrapKey()
+                .map(key -> key.location().getPath())
+                .orElse("unknown");
+    }
+
+    /**
+     * {@return 增减伤（加算区）相关的属性列表}
+     *
+     * <p>该乘区<b>同时容纳攻击方的增伤与受害方的减伤</b>，
+     * 因此承伤公式需要同时读取双方这些属性才能把它们相加。
+     */
+    public static List<Holder<Attribute>> amplifierAttributes() {
+        return List.of(
+                DAMAGE_AMPLIFIER,
+                PHYSICAL_AMPLIFIER,
+                MAGIC_AMPLIFIER);
+    }
+
+    /**
+     * {@return 攻击相关的属性列表，供公式注入变量}
+     */
+    public static List<Holder<Attribute>> attackAttributes() {
+        return List.of(
+                BASE_ATTACK_POWER,
+                ATTACK_POWER_PERCENT,
+                ATTACK_POWER_FLAT,
+                DAMAGE_AMPLIFIER,
+                DAMAGE_MULTIPLIER,
+                CRIT_CHANCE,
+                CRIT_DAMAGE,
+                PHYSICAL_AMPLIFIER,
+                MAGIC_AMPLIFIER);
+    }
+
+    /**
+     * {@return 防御（承伤）相关的属性列表，供公式注入变量}
+     */
+    public static List<Holder<Attribute>> defenseAttributes() {
+        return List.of(
+                PHYSICAL_RESISTANCE,
+                BASE_HEALTH,
+                HEALTH_PERCENT,
+                HEALTH_FLAT);
+    }
+
+    /**
+     * {@return 生命值相关的属性列表，供公式注入变量}
+     */
+    public static List<Holder<Attribute>> healthAttributes() {
+        return List.of(BASE_HEALTH, HEALTH_PERCENT, HEALTH_FLAT);
+    }
 
     private DMAttributes() {
     }

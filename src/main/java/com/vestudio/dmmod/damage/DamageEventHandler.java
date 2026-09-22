@@ -212,8 +212,13 @@ public final class DamageEventHandler {
 
         for (net.minecraft.server.level.ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
             BaseAttackPowerConverter.resolveBaseAttackPower(player);
-            // 生命值同样每秒重算一次，结果写回 max_health。
-            HealthCalculator.resolveMaxHealth(player);
+
+            // 生命值：优先走数据驱动的公式；数据缺失时退回内置计算器。
+            if (ZoneIds.healthZonesPresent()) {
+                HealthFormulaEvaluator.evaluate(player);
+            } else {
+                HealthCalculator.resolveMaxHealth(player);
+            }
         }
     }
 

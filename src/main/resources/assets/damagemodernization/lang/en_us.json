@@ -11,6 +11,9 @@
   "attribute.damagemodernization.base_health": "Health",
   "attribute.damagemodernization.health_percent": "Health Bonus",
   "attribute.damagemodernization.health_flat": "Flat Health",
+  "attribute.damagemodernization.physical_amplifier": "Physical Damage Bonus",
+  "attribute.damagemodernization.magic_amplifier": "Magic Damage Bonus",
+  "attribute.damagemodernization.physical_resistance": "Physical Damage Reduction",
 
   "damagemodernization.value.percent": "%s%%",
 

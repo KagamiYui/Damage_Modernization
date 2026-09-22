@@ -11,6 +11,9 @@
   "attribute.damagemodernization.base_health": "生命值",
   "attribute.damagemodernization.health_percent": "生命值百分比提升",
   "attribute.damagemodernization.health_flat": "固定生命值",
+  "attribute.damagemodernization.physical_amplifier": "物理伤害提升",
+  "attribute.damagemodernization.magic_amplifier": "魔法伤害提升",
+  "attribute.damagemodernization.physical_resistance": "物理伤害减免",
 
   "damagemodernization.value.percent": "%s%%",
 
