@@ -664,24 +664,88 @@ DamageTypeRegistry.registerContributor(
 `itemEffects` 数组用于给武器、装备与饰品登记默认属性加成，
 适合整合包在不改代码、不覆盖原版物品数据的前提下调整平衡。
 
+**随 mod 一起给出的默认内容**（全部 `slot` 为 `mainhand`，理由见下）：
+
+| 目标 | 属性 | 数值 | 含义 |
+|---|---|---|---|
+| `minecraft:diamond_sword` | `attack_power_percent` | `0.1` | 钻石剑 +10% 攻击力 |
+| `minecraft:netherite_sword` | `damage_multiplier` | `0.2` | 下界合金剑 +20% 伤害倍率 |
+| `minecraft:mace` | `physical_amplifier` | `0.5` | 重锤 +50% 物理伤害 |
+| `minecraft:mace` | `crit_damage_bonus` | `0.3` | 重锤 +30% 暴击伤害 |
+| `minecraft:mace` | `crit_chance` | `0.15` | 重锤 +15% 暴击率 |
+
+不需要就删掉对应条目；把数组清空即为「全部武器保持原版强度」。
+
+**它们在物品上的实际显示**（数据取自真实 `getTooltipLines` 输出）：
+
+```
+重锤
+
+主手时：
+ +5 基础攻击力          ← AttackPowerTooltip 把原版的「 5 攻击伤害」就地替换
+ -3.4 攻击速度
+ +50% 物理伤害提升
+ +30% 暴击伤害加成
+ +15% 暴击率
+```
+
+**武器一定要写 `slot: "mainhand"`。** 槽位组决定 tooltip 的**分组标题**：
+修饰符按 `EquipmentSlotGroup` 分组，而武器自身的攻击力属于 `mainhand`。
+若把武器效果留空（默认 `any`），它会被分到 `any` 组，于是 tooltip 变成：
+
+```
+钻石剑
+
+装备时：                ← 单独多出一组，看起来像两件东西
+ +10% 攻击力百分比提升
+
+主手时：
+ 6 攻击伤害
+ -2.4 攻击速度
+```
+
+写 `mainhand` 后两者并入同一组。这也与原版一致——
+武器自带的攻击力同样只在主手生效（拿在副手时不给加成）。
+
 ```json
 "itemEffects": [
   {
     "target": "minecraft:diamond_sword",
     "attribute": "damagemodernization:attack_power_percent",
+    "amount": 0.1,
+    "slot": "mainhand",
+    "comment": "钻石剑：+10% 攻击力"
+  },
+  {
+    "target": "minecraft:mace",
+    "attribute": "damagemodernization:crit_chance",
     "amount": 0.15,
-    "operation": "add_value",
-    "slot": "mainhand"
+    "slot": "mainhand",
+    "comment": "重锤：+15% 暴击率"
   },
   {
     "target": "minecraft:golden_ingot",
     "attribute": "damagemodernization:attack_power_flat",
     "amount": 5.0,
     "slot": "none",
-    "curioSlot": "ring"
+    "curioSlot": "ring",
+    "comment": "只在 Curios 的 ring 槽生效的 +5 攻击力"
   }
 ]
 ```
+
+**为什么「暴击伤害」用的是 `crit_damage_bonus` 而不是 `crit_damage`**：
+暴击区公式把两者相加（`crit_damage + crit_damage_bonus + …`），
+`crit_damage` 是「暴击伤害倍率」本体（默认 1.5），
+`crit_damage_bonus` 才是「暴击伤害加成」这个加算子项——
+装备给的是加成，所以挂后者。同理，「伤害倍率」直接加到 `damage_multiplier` 上
+（默认 1.0，+0.2 即 ×1.2）。
+
+**为什么 tooltip 会自动出现这些行**：NeoForge 的 `AttributeUtil.applyModifierTooltips`
+内部走 `stack.forEachModifier(...)`，这条路径**就是** `ItemAttributeModifierEvent` 的触发点，
+因此本 mod 追加的修饰符天然参与 tooltip 渲染，不需要额外写客户端代码。
+渲染文案沿用原版格式（`+%s %s` / `-%s %s`），
+百分比由 `PercentDisplayAttribute` 负责换算（存 0.15 → 显示 `+15%`）。
 
 | 字段 | 必填 | 说明 |
 |---|---|---|

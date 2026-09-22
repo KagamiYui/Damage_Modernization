@@ -226,31 +226,42 @@
 
   "_itemEffectsComment": "物品效果：给武器/装备/饰品追加属性修饰符，在「装备或持有时」生效。字段：target（物品 id，或 #标签）、attribute（本 mod 属性 id）、amount、operation（add_value / add_multiplied_base / add_multiplied_total）、slot（原版槽位：any / none / mainhand / offhand / hand / armor / head / chest / legs / feet）、curioSlot（饰品槽：留空表示按 slot 推导；any 或 * 表示全部饰品槽；none 表示不作用于饰品栏；其余为 Curios 槽位标识如 ring、necklace、belt、charm），comment 为说明。",
   "_itemEffectsSlotRules": "slot 与 curioSlot 是两个独立维度。只写 slot=any 时同时覆盖原版任意槽位与全部饰品槽；只写 slot=mainhand 时不作用于饰品栏。想让某件饰品只在特定槽位生效，用 slot=none 搭配 curioSlot。饰品槽需要装有 Curios，未安装时只按原版槽位生效。",
-  "_itemEffectsExample": [
+  "_itemEffectsNotes": "下面几条是默认给出的武器效果，可以随意修改或删除；删空该数组即为「全部武器保持原版强度」。不写 operation 时默认 add_value。武器类建议显式写 slot=mainhand：这样效果会与武器自身的攻击力归到同一组（When in Main Hand）显示；留空则默认 any，会单独多出一组 When equipped，看起来像是两件东西。",
+  "itemEffects": [
     {
       "target": "minecraft:diamond_sword",
       "attribute": "damagemodernization:attack_power_percent",
-      "amount": 0.15,
-      "operation": "add_value",
+      "amount": 0.1,
       "slot": "mainhand",
-      "comment": "钻石剑 +15% 攻击力，仅主手"
+      "comment": "钻石剑：+10% 攻击力"
     },
     {
-      "target": "#minecraft:swords",
-      "attribute": "damagemodernization:crit_damage_bonus",
+      "target": "minecraft:netherite_sword",
+      "attribute": "damagemodernization:damage_multiplier",
       "amount": 0.2,
       "slot": "mainhand",
-      "comment": "全部剑类 +20% 暴击伤害加成"
+      "comment": "下界合金剑：+20% 伤害倍率"
     },
     {
-      "target": "minecraft:golden_ingot",
-      "attribute": "damagemodernization:attack_power_flat",
-      "amount": 5.0,
-      "slot": "none",
-      "curioSlot": "ring",
-      "comment": "只在饰品 ring 槽生效的 +5 攻击力"
+      "target": "minecraft:mace",
+      "attribute": "damagemodernization:physical_amplifier",
+      "amount": 0.5,
+      "slot": "mainhand",
+      "comment": "重锤：+50% 物理伤害"
+    },
+    {
+      "target": "minecraft:mace",
+      "attribute": "damagemodernization:crit_damage_bonus",
+      "amount": 0.3,
+      "slot": "mainhand",
+      "comment": "重锤：+30% 暴击伤害"
+    },
+    {
+      "target": "minecraft:mace",
+      "attribute": "damagemodernization:crit_chance",
+      "amount": 0.15,
+      "slot": "mainhand",
+      "comment": "重锤：+15% 暴击率"
     }
-  ],
-  "itemEffects": [
   ]
 }
