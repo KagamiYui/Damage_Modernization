@@ -62,6 +62,15 @@ public final class DamageContext {
     /** 暴击伤害倍率。 */
     private double critDamage;
 
+    /**
+     * 本次攻击携带的<b>外部</b>暴击伤害加成。
+     *
+     * <p>「外部」指不来自本 mod 属性的来源，例如星辉（Astral Sorcery）的
+     * {@code critical_hit_damage} perk。它按<b>加算子项</b>的语义并入暴击区，
+     * 与 {@code crit_damage_bonus} 同一量纲（0.1 表示 +10%）。
+     */
+    private double externalCritDamageBonus;
+
     /** 最终伤害覆盖值；为 null 表示使用乘区运算结果。 */
     @Nullable
     private Double finalDamageOverride;
@@ -355,6 +364,32 @@ public final class DamageContext {
     public void setCritDamage(double value) {
         if (Double.isFinite(value)) {
             this.critDamage = value;
+        }
+    }
+
+    /**
+     * {@return 本次攻击携带的外部暴击伤害加成}
+     *
+     * <p>语义与 {@code crit_damage_bonus} 属性一致，会与它<b>相加</b>后再并入暴击区。
+     */
+    public double externalCritDamageBonus() {
+        return externalCritDamageBonus;
+    }
+
+    /**
+     * 累加外部暴击伤害加成。
+     *
+     * <p>供兼容层把其他 mod 的暴击加成并入本 mod 的暴击区使用。
+     * 使用<b>累加</b>而非覆盖，便于多个来源各自贡献一部分。
+     *
+     * <p>注意：这是「暴击<b>加成</b>」（加算子项），不是暴击倍率本体；
+     * 要改倍率本体请用 {@link #setCritDamage(double)}。
+     *
+     * @param delta 增量，0.1 表示 +10%
+     */
+    public void addExternalCritDamageBonus(double delta) {
+        if (Double.isFinite(delta)) {
+            this.externalCritDamageBonus += delta;
         }
     }
 

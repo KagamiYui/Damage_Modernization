@@ -130,9 +130,22 @@ public class DamageModernization {
 
             // 生命值体系：基础生命值默认取原版血量，
             // 使「基础生命值 = max_health」成立，百分比才有正确基准。
-            addOrDefault(event, type, DMAttributes.BASE_HEALTH, vanillaBaseHealth(type));
+            addOrDefault(event, type, DMAttributes.BASE_HEALTH,
+                    vanillaAttributeBase(type, Attributes.MAX_HEALTH, 20.0D));
             addIfAbsent(event, type, DMAttributes.HEALTH_PERCENT);
             addIfAbsent(event, type, DMAttributes.HEALTH_FLAT);
+
+            // 护甲体系：与生命值同一套逻辑。
+            // 基础护甲/韧性默认取原版对应属性，使「基础值 = 原版值」成立。
+            addOrDefault(event, type, DMAttributes.BASE_ARMOR,
+                    vanillaAttributeBase(type, Attributes.ARMOR, 0.0D));
+            addIfAbsent(event, type, DMAttributes.ARMOR_PERCENT);
+            addIfAbsent(event, type, DMAttributes.ARMOR_FLAT);
+
+            addOrDefault(event, type, DMAttributes.BASE_ARMOR_TOUGHNESS,
+                    vanillaAttributeBase(type, Attributes.ARMOR_TOUGHNESS, 0.0D));
+            addIfAbsent(event, type, DMAttributes.ARMOR_TOUGHNESS_PERCENT);
+            addIfAbsent(event, type, DMAttributes.ARMOR_TOUGHNESS_FLAT);
         }
 
         LOGGER.info(
@@ -141,22 +154,26 @@ public class DamageModernization {
     }
 
     /**
-     * {@return 该实体类型的原版最大生命值}
+     * {@return 该实体类型上某个原版属性的默认值}
      *
-     * <p>用于把基础生命值的默认值对齐到原版血量，
-     * 否则「基础生命值 × (1 + 百分比)」会因为基准不对而算错。
+     * <p>用于把「基础值属性」的默认值对齐到原版对应属性——
+     * 生命值对 {@code max_health}、护甲对 {@code armor}、韧性对 {@code armor_toughness}。
+     * 基准不对的话，「基础值 × (1 + 百分比)」会从一开始就算错。
      *
-     * @param type 实体类型
+     * @param type      实体类型
+     * @param attribute 原版属性
+     * @param fallback  取不到时使用的兜底值
      */
-    private static double vanillaBaseHealth(EntityType<? extends LivingEntity> type) {
-        double fallback = 20.0D;
+    private static double vanillaAttributeBase(EntityType<? extends LivingEntity> type,
+                                               net.minecraft.core.Holder<net.minecraft.world.entity.ai.attributes.Attribute> attribute,
+                                               double fallback) {
         try {
             var supplier = net.minecraft.world.entity.ai.attributes.DefaultAttributes.getSupplier(type);
-            if (supplier.hasAttribute(Attributes.MAX_HEALTH)) {
-                return supplier.getBaseValue(Attributes.MAX_HEALTH);
+            if (supplier.hasAttribute(attribute)) {
+                return supplier.getBaseValue(attribute);
             }
         } catch (Exception e) {
-            // 取不到时退回玩家默认血量。
+            // 取不到时退回兜底值。
         }
         return fallback;
     }
@@ -201,6 +218,13 @@ public class DamageModernization {
      * @param event 通用初始化事件
      */
     private void commonSetup(FMLCommonSetupEvent event) {
+        // 若装有星辉，把它的暴击 perk 并入本 mod 的暴击区。
+        //
+        // 必须放在这里，而不是 mod 构造阶段：mod 构造是<b>并行</b>的，
+        // 我们可能在星辉建好自己的注册表之前就去取，从而误判成「不可用」。
+        // 通用初始化发生在全部 mod 构造与注册完成之后，是安全的时机。
+        com.vestudio.dmmod.damage.AstralCompat.ensureRegistered();
+
         LOGGER.info("Damage_Modernization loaded: four-zone damage model active (enabled={})",
                 Config.ENABLE_FOUR_ZONE_MODEL.getAsBoolean());
     }

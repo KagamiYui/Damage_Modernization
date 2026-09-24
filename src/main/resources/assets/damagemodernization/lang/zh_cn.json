@@ -16,6 +16,12 @@
   "attribute.damagemodernization.physical_amplifier": "物理伤害提升",
   "attribute.damagemodernization.magic_amplifier": "魔法伤害提升",
   "attribute.damagemodernization.physical_resistance": "物理伤害减免",
+  "attribute.damagemodernization.base_armor": "护甲",
+  "attribute.damagemodernization.armor_percent": "护甲百分比提升",
+  "attribute.damagemodernization.armor_flat": "固定护甲",
+  "attribute.damagemodernization.base_armor_toughness": "盔甲韧性",
+  "attribute.damagemodernization.armor_toughness_percent": "盔甲韧性百分比提升",
+  "attribute.damagemodernization.armor_toughness_flat": "固定盔甲韧性",
 
   "damagemodernization.value.percent": "%s%%",
 
@@ -33,8 +39,6 @@
 
   "damagemodernization.configuration.attackPowerZone": "攻击力区",
   "damagemodernization.configuration.attackPowerZone.enabled": "启用",
-  "damagemodernization.configuration.attackPowerZone.scale": "全局缩放系数",
-  "damagemodernization.configuration.attackPowerZone.formula": "合成形态",
 
   "damagemodernization.configuration.damageAmplifierZone": "伤害提升区（加算）",
   "damagemodernization.configuration.damageAmplifierZone.enabled": "启用",

@@ -27,6 +27,12 @@ public final class ZoneIds {
     /** 生命值提升区。 */
     public static final String HEALTH_BONUS = "bonus";
 
+    // ---- 护甲体系的乘区 ----
+    /** 护甲合成区。 */
+    public static final String ARMOR = "armor";
+    /** 盔甲韧性合成区。 */
+    public static final String ARMOR_TOUGHNESS = "toughness";
+
     private ZoneIds() {
     }
 
@@ -62,5 +68,13 @@ public final class ZoneIds {
     public static boolean healthZonesPresent() {
         return DataRepository.zone(ZoneScope.HEALTH, HEALTH_BASE_SCALE) != null
                 && DataRepository.zone(ZoneScope.HEALTH, HEALTH_BONUS) != null;
+    }
+
+    /**
+     * {@return 内置的护甲体系乘区是否齐备}
+     */
+    public static boolean armorZonesPresent() {
+        return DataRepository.zone(ZoneScope.ARMOR, ARMOR) != null
+                && DataRepository.zone(ZoneScope.ARMOR, ARMOR_TOUGHNESS) != null;
     }
 }

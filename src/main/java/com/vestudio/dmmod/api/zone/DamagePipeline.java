@@ -139,10 +139,6 @@ public final class DamagePipeline {
         double attackPowerZone = ctx.baseAttackPower() * (1.0D + ctx.attackPowerPercent())
                 + ctx.attackPowerFlat();
 
-        // 攻击力区的全局缩放：作用于整个乘区（含固定加值），
-        // 让模组包可以用一个系数整体放大或压缩伤害区间。
-        attackPowerZone *= Config.ATTACK_POWER_ZONE_SCALE.get();
-
         double multiplierZone = ctx.damageMultiplier();
 
         // 暴击区：不暴击时为 1.0，保证不影响伤害。
@@ -164,6 +160,9 @@ public final class DamagePipeline {
                     critMultiplier += bonusAttr.getValue();
                 }
             }
+
+            // 外部来源提供的暴伤加成（例如星辉的 perk），同样按加算子项并入。
+            critMultiplier += ctx.externalCritDamageBonus();
 
             LivingEntity victim = ctx.victim();
             if (victim != null) {

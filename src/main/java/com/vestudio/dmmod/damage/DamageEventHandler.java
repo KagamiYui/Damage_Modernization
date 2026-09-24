@@ -64,10 +64,18 @@ public final class DamageEventHandler {
         // 读取攻击力（此时仍未经过蓄力与暴击乘算）。
         double attackPower = BaseAttackPowerConverter.resolveBaseAttackPower(player);
 
+        // 外部暴击数值（星辉的 perk）。
+        // 它们只<b>提供数值</b>，判定权仍在本 mod：这里把星辉的概率加进我们的骰子，
+        // 它自己那一次掷骰的结果则由 onCriticalHitFinalize 在收尾时压回去，
+        // 保证同一份概率只算一次。
+        double externalCritChance = AstralCompat.extraCritChance(player);
+        double externalCritDamage = AstralCompat.extraCritDamageBonus(player);
+
         // 由 crit_chance 属性决定是否暴击，取代原版的「跳跃下劈」判定。
         boolean crit;
         if (Config.ENABLE_CRIT_ZONE.getAsBoolean()) {
-            double critChance = player.getAttributeValue(DMAttributes.CRIT_CHANCE);
+            double critChance = player.getAttributeValue(DMAttributes.CRIT_CHANCE)
+                    + externalCritChance;
             crit = player.getRandom().nextDouble() < critChance;
 
             // 取消原版暴击的伤害乘算：伤害交由我们的暴击乘区统一处理，
@@ -79,12 +87,52 @@ public final class DamageEventHandler {
         }
 
         // 记录上下文，供后续的伤害事件取用。
-        AttackContext.push(attackPower, crit, target.getId());
+        AttackContext.push(attackPower, crit, target.getId(), externalCritDamage);
 
         if (Config.LOG_ZONE_CALCULATION.getAsBoolean()) {
             DamageModernization.LOGGER.info(
-                    "[DM] attack recorded: power={} crit={}", attackPower, crit);
+                    "[DM] attack recorded: power={} crit={} (extCritChance={}, extCritDamage={})",
+                    attackPower, crit, externalCritChance, externalCritDamage);
         }
+    }
+
+    /**
+     * 在暴击事件的<b>收尾阶段</b>把暴击状态再压回去一次。
+     *
+     * <h2>为什么必须在最后再压一次</h2>
+     * 星辉（Astral Sorcery）在 {@code EventPriority.HIGH} 上<b>自己掷骰</b>并
+     * {@code setCriticalHit(true)}，它的暴击伤害处理器又在 {@code LOW} 上
+     * {@code setDamageMultiplier(...)}——这两步都发生在我们的 {@code HIGHEST} <b>之后</b>。
+     *
+     * <p>而 {@code CriticalHitEvent} <b>不实现 {@code ICancellableEvent}</b>：
+     * 事件不可取消，我们无法阻止它的监听器运行。
+     *
+     * <h2>不压回会怎样</h2>
+     * 本 mod 已经把星辉的暴击<b>数值</b>并入了自己的骰子（见 {@link AstralCompat}），
+     * 若再让它那一次掷骰生效，同一份暴击概率就会被<b>算两次</b>——
+     * 例如「属性 5% + 星辉 25%」本应是 30%，实际会接近 47%。
+     *
+     * <p>因此这里把它压回去：<b>数值由本 mod 计入一次，星辉的骰子结果不参与判定。</b>
+     *
+     * <h2>与伤害的关系</h2>
+     * 本 mod 的伤害取自 {@link AttackContext} 里记录的判定结果，本就不受这个标志影响。
+     * 这里压回是为了不让它泄漏出去——原版的暴击粒子/音效，
+     * 以及任何读取 {@code isCriticalHit()} 的第三方。
+     *
+     * @param event 暴击事件
+     */
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public static void onCriticalHitFinalize(CriticalHitEvent event) {
+        if (!DamagePipeline.isModelEnabled()) {
+            return;
+        }
+        if (!Config.ENABLE_CRIT_ZONE.getAsBoolean()) {
+            return;
+        }
+
+        // 无条件压回：本 mod 是近战暴击的唯一判定者。
+        event.setCriticalHit(false);
+        event.setDamageMultiplier(1.0F);
     }
 
     /**
@@ -128,6 +176,13 @@ public final class DamageEventHandler {
 
             DamageContext ctx = DamagePipeline.createMeleeContext(
                     event.getSource(), attacker, victim, baseAttackPower, crit);
+
+            // 把本次攻击携带的外部暴伤加成（星辉的 perk）并入暴击区。
+            // 只有玩家近战才有 AttackContext，因此生物走不到这里。
+            if (context != null) {
+                ctx.addExternalCritDamageBonus(context.externalCritDamageBonus());
+            }
+
             double finalDamage = DamagePipeline.compose(ctx);
 
             applyDamage(event, finalDamage, ctx, "melee");
@@ -219,7 +274,43 @@ public final class DamageEventHandler {
             } else {
                 HealthCalculator.resolveMaxHealth(player);
             }
+
+            // 护甲体系：护甲与盔甲韧性同样走「基础值 → 百分比/固定值 → 写回原版属性」。
+            // 乘区缺失时什么都不做，保持原版数值。
+            if (ZoneIds.armorZonesPresent()) {
+                ArmorFormulaEvaluator.evaluate(player);
+
+                // 调试：把服务端算出来的原始值也打一份。
+                // 与客户端那段 "[DM] raw armor state (client)" 对照，
+                // 就能判断「面板显示 0」到底是服务端没算出来、还是没同步过去。
+                if (Config.LOG_ZONE_CALCULATION.getAsBoolean()
+                        && event.getServer().getTickCount() % 100 == 0) {
+                    logArmorState(player);
+                }
+            }
         }
+    }
+
+    /**
+     * 打印服务端护甲相关属性的原始内部值（调试用）。
+     *
+     * @param player 玩家
+     */
+    private static void logArmorState(net.minecraft.server.level.ServerPlayer player) {
+        var vanilla = player.getAttribute(
+                net.minecraft.world.entity.ai.attributes.Attributes.ARMOR);
+        var base = player.getAttribute(DMAttributes.BASE_ARMOR);
+        DamageModernization.LOGGER.info(
+                "[DM] raw armor state (server): vanilla_armor base={} total={}, "
+                        + "base_armor base={} total={} modifiers={}, "
+                        + "armor_percent={}, armor_flat={}",
+                vanilla == null ? -1.0D : vanilla.getBaseValue(),
+                vanilla == null ? -1.0D : vanilla.getValue(),
+                base == null ? -1.0D : base.getBaseValue(),
+                base == null ? -1.0D : base.getValue(),
+                base == null ? -1 : base.getModifiers().size(),
+                player.getAttributeValue(DMAttributes.ARMOR_PERCENT),
+                player.getAttributeValue(DMAttributes.ARMOR_FLAT));
     }
 
     /**

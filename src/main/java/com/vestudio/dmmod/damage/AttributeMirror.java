@@ -35,6 +35,30 @@ public final class AttributeMirror {
     /** 基础生命值使用的镜像前缀。 */
     public static final String HEALTH_PREFIX = "dm_health_mirror_";
 
+    /** 基础护甲使用的镜像前缀。 */
+    public static final String ARMOR_PREFIX = "dm_armor_mirror_";
+
+    /** 基础盔甲韧性使用的镜像前缀。 */
+    public static final String ARMOR_TOUGHNESS_PREFIX = "dm_armor_toughness_mirror_";
+
+    /** 把「外部加成」并入提升值时使用的镜像前缀。 */
+    public static final String EXTERNAL_BONUS_PREFIX = "dm_external_bonus_";
+
+    /**
+     * 被视为「外部加成」的命名空间。
+     *
+     * <p>这些 mod 的效果<b>不进入基础值</b>，而是并入「提升值」——
+     * 基础值只应当由「原版数值 + 装备」构成，
+     * 第三方 mod 的加成属于额外增益，显示上要落在括号里那一段。
+     *
+     * <p>目前是星辉（Astral Sorcery）：它的 perk 会以
+     * {@code astralsorcery:dynamic_vanilla_modifier_<属性>_<模式>} 的名义
+     * 直接挂在原版属性上（见其 {@code VanillaAttributeType}），
+     * 若照单镜像就会被算成基础值。
+     */
+    public static final java.util.Set<String> EXTERNAL_NAMESPACES = java.util.Set.of("astralsorcery");
+
+
     private AttributeMirror() {
     }
 
@@ -100,6 +124,12 @@ public final class AttributeMirror {
                 continue;
             }
 
+            // 跳过外部 mod 的加成：它们不属于基础值，由
+            // {@link #mirrorExternalToBonus} 并入提升值。
+            if (isExternal(modifier)) {
+                continue;
+            }
+
             ResourceLocation mirrorId = ResourceLocation.fromNamespaceAndPath(
                     DamageModernization.MODID, prefix + index++);
 
@@ -112,6 +142,82 @@ public final class AttributeMirror {
                 // 单个修饰符失败不应中断整体结算，仅记录调试日志。
                 DamageModernization.LOGGER.debug(
                         "Failed to mirror modifier {} onto {}", modifier.id(), prefix, e);
+            }
+        }
+    }
+
+    /**
+     * {@return 该修饰符是否来自「外部加成」命名空间}
+     *
+     * @param modifier 修饰符
+     */
+    public static boolean isExternal(AttributeModifier modifier) {
+        return EXTERNAL_NAMESPACES.contains(modifier.id().getNamespace());
+    }
+
+    /**
+     * 把外部模块（如星辉）挂在原版属性上的加成，改挂到「提升值」属性上。
+     *
+     * <h2>为什么要搬家</h2>
+     * 这些加成改的是原版属性（{@code max_health} / {@code armor} …），
+     * 若走常规镜像就会被算进<b>基础值</b>。
+     * 但它们本质是第三方给的额外增益，应当显示在「结果（基础值 + 非基础值）」
+     * 的<b>括号那一段</b>里，也就是提升值。
+     *
+     * <h2>运算方式的映射</h2>
+     * 外部模块用的是「加固定值 / 加百分比」这套语义，而本 mod 把提升值拆成
+     * {@code *_flat} 与 {@code *_percent} 两个属性，因此：
+     * <ul>
+     *   <li>{@code ADD_VALUE} → 挂到 {@code *_flat}（固定值）；</li>
+     *   <li>乘算类 → 挂到 {@code *_percent}，并以加算方式表达百分比。</li>
+     * </ul>
+     * 也就是说外部的那一份最终都是「加到提升值上」，不会被塞进基础值。
+     *
+     * @param flatTarget    固定值属性（可为 null，则跳过）
+     * @param percentTarget 百分比属性（可为 null，则跳过）
+     * @param source        原版属性实例
+     * @param prefix        镜像前缀（用于识别与清理）
+     */
+    public static void mirrorExternalToBonus(AttributeInstance flatTarget,
+                                             AttributeInstance percentTarget,
+                                             AttributeInstance source,
+                                             String prefix) {
+        if (flatTarget != null) {
+            removeMirrors(flatTarget, prefix);
+        }
+        if (percentTarget != null) {
+            removeMirrors(percentTarget, prefix);
+        }
+        if (source == null) {
+            return;
+        }
+
+        int index = 0;
+        for (AttributeModifier modifier : source.getModifiers()) {
+            if (!isExternal(modifier)) {
+                continue;
+            }
+
+            AttributeInstance target = modifier.operation() == AttributeModifier.Operation.ADD_VALUE
+                    ? flatTarget
+                    : percentTarget;
+            if (target == null) {
+                continue;
+            }
+
+            ResourceLocation mirrorId = ResourceLocation.fromNamespaceAndPath(
+                    DamageModernization.MODID, prefix + index++);
+
+            // 统一以 ADD_VALUE 叠加：
+            // 外部那三种运算方式在这个 mod 里都归约为「提升值上加一份」。
+            AttributeModifier mirror = new AttributeModifier(
+                    mirrorId, modifier.amount(), AttributeModifier.Operation.ADD_VALUE);
+
+            try {
+                target.addOrUpdateTransientModifier(mirror);
+            } catch (Exception e) {
+                DamageModernization.LOGGER.debug(
+                        "Failed to mirror external modifier {} onto {}", modifier.id(), prefix, e);
             }
         }
     }

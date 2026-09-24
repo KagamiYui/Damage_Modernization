@@ -49,6 +49,17 @@ public final class HealthFormulaEvaluator {
     }
 
     /**
+     * {@return 写回 {@code max_health} 时使用的修饰符 id}
+     *
+     * <p>暴露出来是给属性面板用的：面板在客户端拿不到自定义属性的同步值时，
+     * 需要从 {@code max_health} 反推基础值，而这必须先把<b>我们自己写回的那一份</b>
+     * 减掉，否则会把「结果」当成「基础值」。
+     */
+    public static ResourceLocation maxHealthModifierId() {
+        return MAX_HEALTH_MODIFIER;
+    }
+
+    /**
      * 求值生命值乘区，并把结果写入实体属性。
      *
      * @param entity 目标实体
@@ -69,6 +80,14 @@ public final class HealthFormulaEvaluator {
         if (Math.abs(baseAttr.getBaseValue() - vanillaMaxHealth) > EPSILON) {
             baseAttr.setBaseValue(vanillaMaxHealth);
         }
+
+        // 外部模组（如星辉）挂在 max_health 上的加成<b>不算基础值</b>，
+        // 改并入提升值（百分比 / 固定值），于是它显示在括号里而不是加号前面。
+        AttributeMirror.mirrorExternalToBonus(
+                entity.getAttribute(DMAttributes.HEALTH_FLAT),
+                entity.getAttribute(DMAttributes.HEALTH_PERCENT),
+                maxAttr,
+                AttributeMirror.EXTERNAL_BONUS_PREFIX);
 
         // base_health 总值 = 原版基础值 + 装备等加成，即「基础生命值」的基准。
         // 注意此值同时包含基础值与修饰符，因此缩放后需要反算基础值来保持总值为目标。

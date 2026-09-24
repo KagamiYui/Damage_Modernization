@@ -67,6 +67,14 @@ public final class BaseAttackPowerConverter {
         // 复用统一的镜像逻辑：搬迁基础值 + 按前缀重建修饰符。
         AttributeMirror.mirror(baseAttr, vanillaAttr, AttributeMirror.ATTACK_POWER_PREFIX);
 
+        // 外部模组（如星辉）挂在 attack_damage 上的加成不算基础攻击力，
+        // 改并入提升值——与生命值、护甲保持同一口径。
+        AttributeMirror.mirrorExternalToBonus(
+                entity.getAttribute(DMAttributes.ATTACK_POWER_FLAT),
+                entity.getAttribute(DMAttributes.ATTACK_POWER_PERCENT),
+                vanillaAttr,
+                AttributeMirror.EXTERNAL_BONUS_PREFIX);
+
         return sanitize(baseAttr.getValue(), sanitize(vanillaAttr.getValue(), 1.0D));
     }
 

@@ -77,6 +77,16 @@ public final class DamageFormulaEvaluator {
         evaluator.context("multiplier_factor", Config.DAMAGE_MULTIPLIER_ZONE_FACTOR.get());
         evaluator.context("crit_bonus", Config.CRIT_ZONE_DAMAGE_BONUS.get());
 
+        // 外部来源提供的暴伤加成（例如星辉的 critical_hit_damage perk）。
+        // 它的语义与 crit_damage_bonus 属性完全相同——都是暴击区里的加算子项，
+        // 因此并入同一个变量，而不是另开一个乘区。
+        double externalCritDamage = context.externalCritDamageBonus();
+        if (externalCritDamage != 0.0D) {
+            evaluator.context("crit_damage_bonus",
+                    DamageContext.attributeOf(attacker, DMAttributes.CRIT_DAMAGE_BONUS)
+                            + externalCritDamage);
+        }
+
         Map<String, Double> outputs = evaluator.evaluate(ZoneScope.DAMAGE);
 
         // 把暴击区的实际结果回写到上下文，

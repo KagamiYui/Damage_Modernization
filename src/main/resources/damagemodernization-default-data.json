@@ -136,6 +136,54 @@
       "max": 1000000.0,
       "display": "plain",
       "comment": "固定生命值"
+    },
+    {
+      "id": "damagemodernization:base_armor",
+      "vanillaSource": "minecraft:armor",
+      "min": 0.0,
+      "max": 1000000.0,
+      "display": "plain",
+      "comment": "基础护甲：由护甲乘区算出，默认等于原版护甲值（含装备）"
+    },
+    {
+      "id": "damagemodernization:armor_percent",
+      "default": 0.0,
+      "min": -1.0,
+      "max": 1000.0,
+      "display": "percent",
+      "comment": "护甲百分比提升"
+    },
+    {
+      "id": "damagemodernization:armor_flat",
+      "default": 0.0,
+      "min": -1000000.0,
+      "max": 1000000.0,
+      "display": "plain",
+      "comment": "固定护甲"
+    },
+    {
+      "id": "damagemodernization:base_armor_toughness",
+      "vanillaSource": "minecraft:armor_toughness",
+      "min": 0.0,
+      "max": 1000000.0,
+      "display": "plain",
+      "comment": "基础盔甲韧性：由韧性乘区算出，默认等于原版韧性值（含装备）"
+    },
+    {
+      "id": "damagemodernization:armor_toughness_percent",
+      "default": 0.0,
+      "min": -1.0,
+      "max": 1000.0,
+      "display": "percent",
+      "comment": "盔甲韧性百分比提升"
+    },
+    {
+      "id": "damagemodernization:armor_toughness_flat",
+      "default": 0.0,
+      "min": -1000000.0,
+      "max": 1000000.0,
+      "display": "plain",
+      "comment": "固定盔甲韧性"
     }
   ],
 
@@ -204,6 +252,32 @@
         "health_flat"
       ],
       "comment": "生命值提升区：百分比与固定值"
+    },
+    {
+      "scope": "armor",
+      "id": "armor",
+      "priority": 0,
+      "scale": 1.0,
+      "formula": "base_armor * (1 + armor_percent) + armor_flat",
+      "requires": [
+        "base_armor",
+        "armor_percent",
+        "armor_flat"
+      ],
+      "comment": "护甲合成区：base_armor 已含装备等加成，再叠加百分比与固定值，结果以修饰符写回原版 armor。注意只改数值，不动原版护甲减伤公式"
+    },
+    {
+      "scope": "armor",
+      "id": "toughness",
+      "priority": 0,
+      "scale": 1.0,
+      "formula": "base_armor_toughness * (1 + armor_toughness_percent) + armor_toughness_flat",
+      "requires": [
+        "base_armor_toughness",
+        "armor_toughness_percent",
+        "armor_toughness_flat"
+      ],
+      "comment": "盔甲韧性合成区：与护甲同一套逻辑，结果写回原版 armor_toughness"
     },
     {
       "scope": "taken",

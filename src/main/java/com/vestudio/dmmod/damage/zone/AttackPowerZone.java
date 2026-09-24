@@ -17,15 +17,12 @@ import net.minecraft.world.entity.LivingEntity;
  *   攻击力区 = 基础攻击力 × (1 + 百分比提升) + 固定加值
  * </pre>
  *
- * <p>其中「基础攻击力」由 {@code BaseAttackPowerConverter} 从原版攻击伤害转换而来，
+ * <p>「基础攻击力」由 {@code BaseAttackPowerConverter} 从原版攻击伤害转换而来，
  * 因此上下文里携带的值已经是正确的基准。
  *
- * <p>配置项 {@code attackPowerFormula} 允许模组包在不写代码的情况下切换形态：
- * <ul>
- *   <li>{@code FULL}：完整形态（默认），百分比与固定加值都计入；</li>
- *   <li>{@code FLAT_ONLY}：忽略百分比，只看基础值与固定加值；</li>
- *   <li>{@code PERCENT_ONLY}：只看基础值与百分比，忽略固定加值。</li>
- * </ul>
+ * <p>百分比与固定加值从攻击者的属性读取后累加进上下文。
+ * 注意数据驱动的伤害公式是<b>直接读实体属性</b>的，不读这里的上下文字段，
+ * 因此本乘区在正常路径下只是把信息补齐，供兜底公式与第三方读取。
  */
 public final class AttackPowerZone implements IDamageZone {
 
@@ -54,20 +51,10 @@ public final class AttackPowerZone implements IDamageZone {
         // 攻击力百分比与固定加值来自攻击者的属性。
         // 环境伤害没有攻击者，此时保持上下文中的原始数值不变。
         if (attacker != null) {
-            String formula = Config.ATTACK_POWER_FORMULA.get();
-
-            if (!"FLAT_ONLY".equals(formula)) {
-                context.addAttackPowerPercent(
-                        attacker.getAttributeValue(DMAttributes.ATTACK_POWER_PERCENT));
-            }
-            if (!"PERCENT_ONLY".equals(formula)) {
-                context.addAttackPowerFlat(
-                        attacker.getAttributeValue(DMAttributes.ATTACK_POWER_FLAT));
-            }
+            context.addAttackPowerPercent(
+                    attacker.getAttributeValue(DMAttributes.ATTACK_POWER_PERCENT));
+            context.addAttackPowerFlat(
+                    attacker.getAttributeValue(DMAttributes.ATTACK_POWER_FLAT));
         }
-
-        // 注意：全局缩放系数由 DamagePipeline 统一作用于「攻击力区」的最终结果，
-        // 而不是在这里只缩放基础攻击力——否则固定加值会被漏掉，
-        // 导致 scale 的语义变成「部分缩放」。
     }
 }

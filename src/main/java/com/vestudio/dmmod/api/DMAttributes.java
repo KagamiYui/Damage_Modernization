@@ -268,6 +268,82 @@ public final class DMAttributes {
                     .setSyncable(true));
 
     // ==================================================================
+    // 护甲与盔甲韧性
+    // ==================================================================
+    //
+    // 与生命值同一套思路：原版 armor / armor_toughness 的语义是「最终值」，
+    // 这里新增 base_armor / base_armor_toughness 承载「基础值」，
+    // 再在其上叠加百分比与固定加成，算出的结果以修饰符写回原版属性。
+    //
+    // 注意：我们只改这两个属性的<b>数值</b>，不碰原版的护甲减伤公式。
+
+    /**
+     * 基础护甲：护甲计算的基准，含装备等提供的护甲。
+     *
+     * <p>默认 0.0（裸装），实际注入时按生物类型取原版 {@code minecraft:armor} 的默认值。
+     */
+    public static final Holder<Attribute> BASE_ARMOR = ATTRIBUTES.register(
+            "base_armor",
+            () -> new RangedAttribute(
+                    "attribute.damagemodernization.base_armor",
+                    0.0D, 0.0D, 1_000_000.0D)
+                    .setSyncable(true));
+
+    /**
+     * 护甲百分比提升：作用于基础护甲。
+     *
+     * <p>采用 {@link PercentDisplayAttribute}，0.1 显示为 +10%。默认 0.0。
+     */
+    public static final Holder<Attribute> ARMOR_PERCENT = ATTRIBUTES.register(
+            "armor_percent",
+            () -> new PercentDisplayAttribute(
+                    "attribute.damagemodernization.armor_percent",
+                    0.0D, -1.0D, 1_000.0D)
+                    .setSyncable(true));
+
+    /**
+     * 固定护甲：直接加在「基础护甲 × (1 + 百分比)」之上。
+     */
+    public static final Holder<Attribute> ARMOR_FLAT = ATTRIBUTES.register(
+            "armor_flat",
+            () -> new RangedAttribute(
+                    "attribute.damagemodernization.armor_flat",
+                    0.0D, -1_000_000.0D, 1_000_000.0D)
+                    .setSyncable(true));
+
+    /**
+     * 基础盔甲韧性：韧性计算的基准，含装备等提供的韧性。
+     *
+     * <p>默认 0.0，实际注入时按生物类型取原版 {@code minecraft:armor_toughness} 的默认值。
+     */
+    public static final Holder<Attribute> BASE_ARMOR_TOUGHNESS = ATTRIBUTES.register(
+            "base_armor_toughness",
+            () -> new RangedAttribute(
+                    "attribute.damagemodernization.base_armor_toughness",
+                    0.0D, 0.0D, 1_000_000.0D)
+                    .setSyncable(true));
+
+    /**
+     * 盔甲韧性百分比提升：作用于基础盔甲韧性。
+     */
+    public static final Holder<Attribute> ARMOR_TOUGHNESS_PERCENT = ATTRIBUTES.register(
+            "armor_toughness_percent",
+            () -> new PercentDisplayAttribute(
+                    "attribute.damagemodernization.armor_toughness_percent",
+                    0.0D, -1.0D, 1_000.0D)
+                    .setSyncable(true));
+
+    /**
+     * 固定盔甲韧性：直接加在「基础盔甲韧性 × (1 + 百分比)」之上。
+     */
+    public static final Holder<Attribute> ARMOR_TOUGHNESS_FLAT = ATTRIBUTES.register(
+            "armor_toughness_flat",
+            () -> new RangedAttribute(
+                    "attribute.damagemodernization.armor_toughness_flat",
+                    0.0D, -1_000_000.0D, 1_000_000.0D)
+                    .setSyncable(true));
+
+    // ==================================================================
     // 公式变量
     // ==================================================================
 
@@ -333,6 +409,22 @@ public final class DMAttributes {
      */
     public static List<Holder<Attribute>> healthAttributes() {
         return List.of(BASE_HEALTH, HEALTH_PERCENT, HEALTH_FLAT);
+    }
+
+    /**
+     * {@return 护甲体系相关的属性列表，供公式注入变量}
+     *
+     * <p>护甲与盔甲韧性共用一份列表：两者的公式各自只引用自己那三个变量，
+     * 多余的变量注入进去不会被读到，也就不影响结果。
+     */
+    public static List<Holder<Attribute>> armorAttributes() {
+        return List.of(
+                BASE_ARMOR,
+                ARMOR_PERCENT,
+                ARMOR_FLAT,
+                BASE_ARMOR_TOUGHNESS,
+                ARMOR_TOUGHNESS_PERCENT,
+                ARMOR_TOUGHNESS_FLAT);
     }
 
     private DMAttributes() {

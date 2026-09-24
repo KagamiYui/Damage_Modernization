@@ -44,23 +44,6 @@ public final class Config {
             .comment("是否启用攻击力区。")
             .define("attackPowerZone.enabled", true);
 
-    public static final ModConfigSpec.DoubleValue ATTACK_POWER_ZONE_SCALE = BUILDER
-            .comment(
-                    "攻击力区全局缩放系数，作用于「基础攻击力」本身。",
-                    "默认 1.0，即完全保留原版数值手感（空手 1、石剑 4、钻石剑 6、下界合金剑 7）。",
-                    "调大可整体放大伤害区间，调小则整体压缩。")
-            .defineInRange("attackPowerZone.scale", 1.0D, 0.0D, 1000.0D);
-
-    public static final ModConfigSpec.ConfigValue<String> ATTACK_POWER_FORMULA = BUILDER
-            .comment(
-                    "攻击力区的合成形态，可选值：",
-                    "  FULL         —— 基础攻击力 × (1 + 百分比提升) + 固定加值（默认）",
-                    "  FLAT_ONLY    —— 忽略百分比提升，只保留基础值与固定加值",
-                    "  PERCENT_ONLY —— 忽略固定加值，只保留基础值与百分比提升")
-            .define("attackPowerZone.formula", "FULL",
-                    o -> o instanceof String s
-                            && List.of("FULL", "FLAT_ONLY", "PERCENT_ONLY").contains(s));
-
     // ==================================================================
     // 伤害提升区（加算区）
     // ==================================================================

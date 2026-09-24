@@ -16,6 +16,12 @@
   "attribute.damagemodernization.physical_amplifier": "Physical Damage Bonus",
   "attribute.damagemodernization.magic_amplifier": "Magic Damage Bonus",
   "attribute.damagemodernization.physical_resistance": "Physical Damage Reduction",
+  "attribute.damagemodernization.base_armor": "Armor",
+  "attribute.damagemodernization.armor_percent": "Armor Bonus",
+  "attribute.damagemodernization.armor_flat": "Flat Armor",
+  "attribute.damagemodernization.base_armor_toughness": "Armor Toughness",
+  "attribute.damagemodernization.armor_toughness_percent": "Armor Toughness Bonus",
+  "attribute.damagemodernization.armor_toughness_flat": "Flat Armor Toughness",
 
   "damagemodernization.value.percent": "%s%%",
 
@@ -33,8 +39,6 @@
 
   "damagemodernization.configuration.attackPowerZone": "Attack Power Zone",
   "damagemodernization.configuration.attackPowerZone.enabled": "Enabled",
-  "damagemodernization.configuration.attackPowerZone.scale": "Global Scale",
-  "damagemodernization.configuration.attackPowerZone.formula": "Formula Mode",
 
   "damagemodernization.configuration.damageAmplifierZone": "Damage Amplifier Zone (Additive)",
   "damagemodernization.configuration.damageAmplifierZone.enabled": "Enabled",

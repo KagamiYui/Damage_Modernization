@@ -37,11 +37,14 @@ public final class AttackContext {
     private final double originalAttackPower;
     private final boolean critical;
     private final long targetId;
+    private final double externalCritDamageBonus;
 
-    private AttackContext(double originalAttackPower, boolean critical, long targetId) {
+    private AttackContext(double originalAttackPower, boolean critical, long targetId,
+                          double externalCritDamageBonus) {
         this.originalAttackPower = originalAttackPower;
         this.critical = critical;
         this.targetId = targetId;
+        this.externalCritDamageBonus = externalCritDamageBonus;
     }
 
     /**
@@ -54,7 +57,24 @@ public final class AttackContext {
      * @param targetId            攻击目标的实体 id，用于避免上下文错配
      */
     public static void push(double originalAttackPower, boolean critical, long targetId) {
-        STACK.get().push(new AttackContext(originalAttackPower, critical, targetId));
+        push(originalAttackPower, critical, targetId, 0.0D);
+    }
+
+    /**
+     * 记录一次攻击的原始信息，并附带本次攻击的外部暴击伤害加成。
+     *
+     * <p>「外部」指不来自本 mod 属性的来源，例如星辉（Astral Sorcery）的
+     * {@code critical_hit_damage} perk。它按加算子项的语义并入暴击区。
+     *
+     * @param originalAttackPower     尚未经过蓄力与暴击乘算的原始基础攻击力
+     * @param critical                本次攻击是否判定为暴击
+     * @param targetId                攻击目标的实体 id，用于避免上下文错配
+     * @param externalCritDamageBonus 外部提供的暴击伤害加成（0.1 表示 +10%）
+     */
+    public static void push(double originalAttackPower, boolean critical, long targetId,
+                            double externalCritDamageBonus) {
+        STACK.get().push(new AttackContext(originalAttackPower, critical, targetId,
+                Double.isFinite(externalCritDamageBonus) ? externalCritDamageBonus : 0.0D));
     }
 
     /**
@@ -103,5 +123,15 @@ public final class AttackContext {
     /** {@return 被攻击目标的实体 id} */
     public long targetId() {
         return targetId;
+    }
+
+    /**
+     * {@return 本次攻击携带的外部暴击伤害加成}
+     *
+     * <p>例如星辉的 {@code critical_hit_damage} perk。量纲与
+     * {@code crit_damage_bonus} 一致（0.1 = +10%），由本 mod 在其上加算。
+     */
+    public double externalCritDamageBonus() {
+        return externalCritDamageBonus;
     }
 }

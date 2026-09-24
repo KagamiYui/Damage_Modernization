@@ -140,6 +140,11 @@ dependencies {
     // 换版本时替换 libs/ 下的 jar 即可。
     compileOnly files("libs/curios-neoforge-9.5.1+1.21.1.jar")
 
+    // 可选依赖：星辉（Astral Sorcery）。
+    // 它的暴击概率/暴击伤害是自家 perk 属性，不在原版属性系统里，
+    // 必须读它的 API 才能并入本 mod 的暴击区。同样只在编译期可见。
+    compileOnly files("libs/AstralSorcery-2.0.0.3.jar")
+
     // For more info:
     // http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
     // http://www.gradle.org/docs/current/userguide/dependency_management.html
