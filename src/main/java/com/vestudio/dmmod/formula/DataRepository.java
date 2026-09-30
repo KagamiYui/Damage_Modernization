@@ -1,6 +1,7 @@
 package com.vestudio.dmmod.formula;
 
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -88,9 +89,11 @@ public final class DataRepository {
         Map<ResourceLocation, ZoneDefinition> loadedZones = new LinkedHashMap<>();
 
         if (!Files.isDirectory(dir)) {
-            // 目录不存在属正常情况：使用内置默认公式。
+            // 目录缺失时改用随 mod 发布的内置默认数据。
+            // 不能放任 zones 为空：护甲体系没有代码兜底实现，乘区缺失就整条停摆。
             DamageModernization.LOGGER.info(
-                    "数据目录不存在，使用内置默认公式: {}", dir.toAbsolutePath());
+                    "数据目录不存在，改用内置默认数据: {}", dir.toAbsolutePath());
+            mergeBuiltInDefaults(loadedAttributes, loadedZones);
             install(loadedAttributes, loadedZones);
             return;
         }
@@ -103,6 +106,7 @@ public final class DataRepository {
                     .toList();
         } catch (IOException e) {
             DamageModernization.LOGGER.error("无法读取数据目录 {}", dir, e);
+            mergeBuiltInDefaults(loadedAttributes, loadedZones);
             install(loadedAttributes, loadedZones);
             return;
         }
@@ -111,7 +115,91 @@ public final class DataRepository {
             loadFile(file, loadedAttributes, loadedZones);
         }
 
+        // 老版本释放的数据文件里不会有后来新增的内置乘区（例如护甲体系），
+        // 而「绝不覆盖」的策略会让它永远缺下去——结果是新体系整条不工作。
+        // 这里只把缺失的内置定义补上，用户写过的条目一律保留。
+        mergeBuiltInDefaults(loadedAttributes, loadedZones);
+
         install(loadedAttributes, loadedZones);
+    }
+
+    /**
+     * 用内置默认数据补齐配置里缺失的属性与乘区。
+     *
+     * <h2>为什么需要它</h2>
+     * 配置目录里的数据文件只在<b>首次运行</b>时释放，之后绝不覆盖
+     * （否则玩家的修改会在每次启动被冲掉）。代价是：mod 升级后新增的内置乘区
+     * 不会出现在老配置里，而这会让新体系整条失效——
+     * 例如缺少 {@code armor} 乘区时，护甲合成完全不会执行，
+     * 面板会把原版护甲总值当成「基础值」，星辉等外部加成也就无法归到「变化值」。
+     *
+     * <p>因此这里做一次<b>只补不覆盖</b>的合并：用户已经写过的同 id 定义优先，
+     * 缺失的才用内置默认值填上。想禁用某个内置乘区请把它改成
+     * {@code "enabled": false}，而不是删掉条目。
+     *
+     * <p>刻意不复用 {@link #parse}：那条路径会顺带安装 {@code itemEffects}，
+     * 把用户配置里的物品效果覆盖掉。
+     *
+     * @param attributes 已加载的属性（会被补齐）
+     * @param zones      已加载的乘区（会被补齐）
+     */
+    private static void mergeBuiltInDefaults(
+            Map<ResourceLocation, AttributeDefinition> attributes,
+            Map<ResourceLocation, ZoneDefinition> zones) {
+
+        JsonObject root;
+        try (var in = DataRepository.class.getClassLoader().getResourceAsStream(DEFAULT_RESOURCE)) {
+            if (in == null) {
+                return;
+            }
+            try (Reader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
+                JsonElement json = GSON.fromJson(reader, JsonElement.class);
+                if (json == null || !json.isJsonObject()) {
+                    return;
+                }
+                root = json.getAsJsonObject();
+            }
+        } catch (Exception e) {
+            DamageModernization.LOGGER.error("读取内置默认数据失败，跳过补齐", e);
+            return;
+        }
+
+        int addedAttributes = 0;
+        for (JsonElement e : arrayOf(root, "attributes")) {
+            try {
+                AttributeDefinition def = parseAttribute(e.getAsJsonObject(), "内置默认数据");
+                if (!def.validate().isEmpty()) {
+                    continue;
+                }
+                if (attributes.putIfAbsent(def.id(), def) == null) {
+                    addedAttributes++;
+                }
+            } catch (Exception ex) {
+                DamageModernization.LOGGER.error("内置默认属性解析失败，已跳过", ex);
+            }
+        }
+
+        int addedZones = 0;
+        for (JsonElement e : arrayOf(root, "zones")) {
+            try {
+                ZoneDefinition def = parseZone(e.getAsJsonObject(), "内置默认数据");
+                if (!def.validate().isEmpty()) {
+                    continue;
+                }
+                if (zones.putIfAbsent(def.key(), def) == null) {
+                    addedZones++;
+                }
+            } catch (Exception ex) {
+                DamageModernization.LOGGER.error("内置默认乘区解析失败，已跳过", ex);
+            }
+        }
+
+        if (addedAttributes > 0 || addedZones > 0) {
+            DamageModernization.LOGGER.info(
+                    "已用内置默认数据补齐 {} 个属性、{} 个乘区"
+                            + "（老配置缺少新版本新增的内置内容；如需禁用请把该条的 enabled 设为 false，不要删除条目）",
+                    addedAttributes, addedZones);
+        }
     }
 
     /**
