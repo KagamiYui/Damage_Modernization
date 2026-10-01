@@ -42,17 +42,27 @@ public final class DamageFormulaEvaluator {
     public static double evaluate(DamageContext context) {
         LivingEntity attacker = context.attacker();
 
-        // 先把武器的攻击伤害解析/镜像进 base_attack_power。
-        // 公式读的是属性总值，若跳过这一步，武器加成不会体现，
-        // 所有攻击都会退化成空手攻击力。
-        if (attacker != null) {
-            BaseAttackPowerConverter.resolveBaseAttackPower(attacker);
-        }
-
         ZoneEvaluator evaluator = new ZoneEvaluator();
 
         // 攻击者的属性（环境伤害没有攻击者，此时全部注入 0）。
         evaluator.attributes(attacker, DMAttributes.attackAttributes());
+
+        // 攻击力区直接取原版攻击伤害的<b>总值</b>：武器加成、药水、以及我们的
+        // 百分比/固定值加成全都以修饰符形式挂在它上面，原版已经算好了。
+        // 因此不再需要自己维护一份「基础攻击力」，也不需要那个镜像步骤。
+        if (attacker != null) {
+            double attackDamage = DamageContext.attributeOf(attacker,
+                    net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE);
+            evaluator.context("attack_damage", attackDamage);
+
+            // 兼容旧公式：早期数据文件写的是
+            // {@code base_attack_power * (1 + attack_power_percent) + attack_power_flat}。
+            // 把「基础攻击力」也指向同一个总值，并把那两个加成项归零——
+            // 它们已经作为修饰符并入总值，若仍按旧式再乘一次就会重复计算。
+            evaluator.context("base_attack_power", attackDamage);
+            evaluator.context("attack_power_percent", 0.0D);
+            evaluator.context("attack_power_flat", 0.0D);
+        }
 
         // 受害者的「暴击伤害减免」。
         // 它虽然是防守方属性，但按需求应当在<b>暴击区内直接削减系数</b>，

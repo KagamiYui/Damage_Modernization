@@ -26,8 +26,14 @@
   "damagemodernization.value.percent": "%s%%",
 
   "key.categories.damagemodernization": "Damage Modernization",
-  "key.damagemodernization.toggle_stats_panel": "Toggle Stats Panel",
+  "key.damagemodernization.toggle_stats_panel": "Open Stats Panel",
   "gui.damagemodernization.stats_panel.title": "Damage Stats",
+  "gui.damagemodernization.stats_panel.survival": "Survival",
+  "gui.damagemodernization.stats_panel.offense": "Offense",
+  "gui.damagemodernization.stats_panel.tab_panel": "Attributes",
+  "gui.damagemodernization.stats_panel.tab_sources": "Sources",
+  "gui.damagemodernization.stats_panel.source_base": "Vanilla base",
+  "gui.damagemodernization.stats_panel.hint": "Press K or ESC to close",
   "gui.damagemodernization.attack_power_zone": "Attack Power",
 
   "damagemodernization.configuration.title": "Damage_Modernization Configs",

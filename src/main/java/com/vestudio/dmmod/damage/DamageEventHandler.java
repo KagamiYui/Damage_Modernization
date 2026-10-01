@@ -62,7 +62,9 @@ public final class DamageEventHandler {
         Entity target = event.getTarget();
 
         // 读取攻击力（此时仍未经过蓄力与暴击乘算）。
-        double attackPower = BaseAttackPowerConverter.resolveBaseAttackPower(player);
+        // 直接取原版攻击伤害的总值——武器、药水与我们的加成都在里面。
+        double attackPower = player.getAttributeValue(
+                net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE);
 
         // 外部暴击数值（星辉的 perk）。
         // 它们只<b>提供数值</b>，判定权仍在本 mod：这里把星辉的概率加进我们的骰子，
@@ -170,7 +172,8 @@ public final class DamageEventHandler {
                 crit = context.critical();
             } else {
                 // 生物近战（或上下文缺失）：读取攻击者属性，并即时掷骰暴击。
-                baseAttackPower = BaseAttackPowerConverter.resolveBaseAttackPower(attacker);
+                baseAttackPower = attacker.getAttributeValue(
+                        net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE);
                 crit = rollCrit(attacker);
             }
 
@@ -223,10 +226,8 @@ public final class DamageEventHandler {
             return;
         }
 
-        // 重新推导镜像，使基础攻击力尽早反映当前武器。
-        // 即便此刻原版属性尚未结算完（读到中间态），
-        // 下一次伤害结算也会再次推导，因此不会影响实际伤害。
-        BaseAttackPowerConverter.resolveBaseAttackPower(entity);
+        // 攻击力已改为直接取原版 attack_damage：
+        // 装备变化时原版会自行重算，不再需要手动推导镜像。
     }
 
     /** 刷新间隔：20 tick = 1 秒。 */
@@ -266,28 +267,10 @@ public final class DamageEventHandler {
         }
 
         for (net.minecraft.server.level.ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
-            BaseAttackPowerConverter.resolveBaseAttackPower(player);
-
-            // 生命值：优先走数据驱动的公式；数据缺失时退回内置计算器。
-            if (ZoneIds.healthZonesPresent()) {
-                HealthFormulaEvaluator.evaluate(player);
-            } else {
-                HealthCalculator.resolveMaxHealth(player);
-            }
-
-            // 护甲体系：护甲与盔甲韧性同样走「基础值 → 百分比/固定值 → 写回原版属性」。
-            // 乘区缺失时什么都不做，保持原版数值。
-            if (ZoneIds.armorZonesPresent()) {
-                ArmorFormulaEvaluator.evaluate(player);
-
-                // 调试：把服务端算出来的原始值也打一份。
-                // 与客户端那段 "[DM] raw armor state (client)" 对照，
-                // 就能判断「面板显示 0」到底是服务端没算出来、还是没同步过去。
-                if (Config.LOG_ZONE_CALCULATION.getAsBoolean()
-                        && event.getServer().getTickCount() % 100 == 0) {
-                    logArmorState(player);
-                }
-            }
+            // 生命值 / 护甲 / 盔甲韧性 / 攻击力：不再自己算最终值再写回，
+            // 而是把「百分比 / 固定值」加成翻译成原版属性上的修饰符，
+            // 由原版完成合成——原版公式本身就支持这两件事。
+            AttributeBonusApplier.apply(player);
         }
     }
 
@@ -321,8 +304,6 @@ public final class DamageEventHandler {
     @SubscribeEvent
     public static void onLivingDeath(LivingDeathEvent event) {
         AttackContext.clear();
-        BaseAttackPowerConverter.forget(event.getEntity());
-        HealthCalculator.forget(event.getEntity());
     }
 
     /**

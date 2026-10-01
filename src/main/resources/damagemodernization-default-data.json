@@ -193,13 +193,11 @@
       "id": "attack_power",
       "priority": -500,
       "scale": 1.0,
-      "formula": "base_attack_power * (1 + attack_power_percent) + attack_power_flat",
+      "formula": "attack_damage",
       "requires": [
-        "base_attack_power",
-        "attack_power_percent",
-        "attack_power_flat"
+        "attack_damage"
       ],
-      "comment": "攻击力区：输出绝对点数（也是乘数）"
+      "comment": "攻击力区：直接取原版攻击伤害的总值（武器、药水与此 mod 的加成都在里面）"
     },
     {
       "scope": "damage",
