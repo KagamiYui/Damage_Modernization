@@ -9,7 +9,6 @@ import com.vestudio.dmmod.damage.zone.BuiltInZones;
 
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
@@ -26,13 +25,13 @@ import net.neoforged.neoforge.event.entity.EntityAttributeModificationEvent;
  *   最终伤害 = 攻击力区 × 伤害提升区 × 伤害倍率区 × 暴击伤害区
  * </pre>
  *
- * <p>其中「攻击力区」= 基础攻击力 × (1 + 攻击力百分比提升) + 固定攻击力，
- * 而「基础攻击力」由原版 {@code attack_damage} 语义重写而来。
+ * <p>其中「攻击力区」= 原版攻击伤害 × (1 + 攻击力百分比提升) + 固定攻击力。
+ * <b>基础值就是原版数值本身</b>，本 mod 只在其上叠加「百分比 / 固定值」增量。
  *
  * <p>核心实现位于 {@code com.vestudio.dmmod.damage} 包：
  * <ul>
- *   <li>{@code BaseAttackPowerConverter} —— 攻击伤害 → 基础攻击力的重写</li>
- *   <li>{@code DamageZones} —— 四乘区运算</li>
+ *   <li>{@code AttributeBonusApplier} —— 把百分比/固定值翻译成原版属性修饰符</li>
+ *   <li>{@code DamageFormulaEvaluator} —— 数据驱动的乘区求值</li>
  *   <li>{@code DamageEventHandler} —— 接管原版伤害管线</li>
  * </ul>
  */
@@ -65,7 +64,7 @@ public class DamageModernization {
 
         modEventBus.addListener(this::commonSetup);
 
-        // 把「基础攻击力」等属性注入到所有生物身上，
+        // 把本 mod 的增量属性注入到所有生物身上，
         // 这是「所有生物的所有伤害」都能走四乘区的前提。
         modEventBus.addListener(this::onEntityAttributeModification);
 
@@ -87,8 +86,8 @@ public class DamageModernization {
      * 为所有可拥有属性的生物类型注入本 mod 的属性。
      *
      * <p>这是实现需求中「生效范围：所有生物的所有伤害」的关键一步：
-     * 若不注入，非玩家生物将没有 {@code base_attack_power} 等属性，
-     * 四乘区运算只能退化为读取原版数值。
+     * 若不注入，非玩家生物就不会带「攻击力百分比提升」等增量属性，
+     * 四乘区运算只能读到全 0 的加成。
      *
      * <h2>为什么在这里读取配置</h2>
      * 属性在<b>注册阶段</b>就会被实例化，而配置加载晚于注册，
@@ -110,7 +109,6 @@ public class DamageModernization {
 
         for (EntityType<? extends LivingEntity> type : event.getTypes()) {
             // 逐个检查后再添加，避免与已存在的属性冲突。
-            addIfAbsent(event, type, DMAttributes.BASE_ATTACK_POWER);
             addIfAbsent(event, type, DMAttributes.ATTACK_POWER_PERCENT);
             addIfAbsent(event, type, DMAttributes.ATTACK_POWER_FLAT);
             addIfAbsent(event, type, DMAttributes.DAMAGE_AMPLIFIER);
@@ -128,22 +126,15 @@ public class DamageModernization {
             // 暴击伤害的加算子项（与倍率本体区分）。
             addIfAbsent(event, type, DMAttributes.CRIT_DAMAGE_BONUS);
 
-            // 生命值体系：基础生命值默认取原版血量，
-            // 使「基础生命值 = max_health」成立，百分比才有正确基准。
-            addOrDefault(event, type, DMAttributes.BASE_HEALTH,
-                    vanillaAttributeBase(type, Attributes.MAX_HEALTH, 20.0D));
+            // 生命值 / 护甲体系：只注入「百分比 / 固定值」两个增量属性。
+            // 基础值就是原版的 max_health、armor、armor_toughness，
+            // 不再自建一套镜像属性来承载它们。
             addIfAbsent(event, type, DMAttributes.HEALTH_PERCENT);
             addIfAbsent(event, type, DMAttributes.HEALTH_FLAT);
 
-            // 护甲体系：与生命值同一套逻辑。
-            // 基础护甲/韧性默认取原版对应属性，使「基础值 = 原版值」成立。
-            addOrDefault(event, type, DMAttributes.BASE_ARMOR,
-                    vanillaAttributeBase(type, Attributes.ARMOR, 0.0D));
             addIfAbsent(event, type, DMAttributes.ARMOR_PERCENT);
             addIfAbsent(event, type, DMAttributes.ARMOR_FLAT);
 
-            addOrDefault(event, type, DMAttributes.BASE_ARMOR_TOUGHNESS,
-                    vanillaAttributeBase(type, Attributes.ARMOR_TOUGHNESS, 0.0D));
             addIfAbsent(event, type, DMAttributes.ARMOR_TOUGHNESS_PERCENT);
             addIfAbsent(event, type, DMAttributes.ARMOR_TOUGHNESS_FLAT);
         }
@@ -151,31 +142,6 @@ public class DamageModernization {
         LOGGER.info(
                 "Injected damage attribute defaults (critChance={}, critDamage={}, damageMultiplier={})",
                 critChance, critDamage, damageMultiplier);
-    }
-
-    /**
-     * {@return 该实体类型上某个原版属性的默认值}
-     *
-     * <p>用于把「基础值属性」的默认值对齐到原版对应属性——
-     * 生命值对 {@code max_health}、护甲对 {@code armor}、韧性对 {@code armor_toughness}。
-     * 基准不对的话，「基础值 × (1 + 百分比)」会从一开始就算错。
-     *
-     * @param type      实体类型
-     * @param attribute 原版属性
-     * @param fallback  取不到时使用的兜底值
-     */
-    private static double vanillaAttributeBase(EntityType<? extends LivingEntity> type,
-                                               net.minecraft.core.Holder<net.minecraft.world.entity.ai.attributes.Attribute> attribute,
-                                               double fallback) {
-        try {
-            var supplier = net.minecraft.world.entity.ai.attributes.DefaultAttributes.getSupplier(type);
-            if (supplier.hasAttribute(attribute)) {
-                return supplier.getBaseValue(attribute);
-            }
-        } catch (Exception e) {
-            // 取不到时退回兜底值。
-        }
-        return fallback;
     }
 
     /**

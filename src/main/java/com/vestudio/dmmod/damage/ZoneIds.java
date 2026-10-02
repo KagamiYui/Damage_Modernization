@@ -21,18 +21,6 @@ public final class ZoneIds {
     /** 暴击区。 */
     public static final String CRITICAL = "critical";
 
-    // ---- 生命值的乘区 ----
-    /** 基础生命值缩放区。 */
-    public static final String HEALTH_BASE_SCALE = "base_scale";
-    /** 生命值提升区。 */
-    public static final String HEALTH_BONUS = "bonus";
-
-    // ---- 护甲体系的乘区 ----
-    /** 护甲合成区。 */
-    public static final String ARMOR = "armor";
-    /** 盔甲韧性合成区。 */
-    public static final String ARMOR_TOUGHNESS = "toughness";
-
     private ZoneIds() {
     }
 
@@ -60,21 +48,5 @@ public final class ZoneIds {
      */
     public static boolean amplifierZonePresent() {
         return DataRepository.zone(ZoneScope.TAKEN, AMPLIFIER) != null;
-    }
-
-    /**
-     * {@return 内置的生命值乘区是否齐备}
-     */
-    public static boolean healthZonesPresent() {
-        return DataRepository.zone(ZoneScope.HEALTH, HEALTH_BASE_SCALE) != null
-                && DataRepository.zone(ZoneScope.HEALTH, HEALTH_BONUS) != null;
-    }
-
-    /**
-     * {@return 内置的护甲体系乘区是否齐备}
-     */
-    public static boolean armorZonesPresent() {
-        return DataRepository.zone(ZoneScope.ARMOR, ARMOR) != null
-                && DataRepository.zone(ZoneScope.ARMOR, ARMOR_TOUGHNESS) != null;
     }
 }

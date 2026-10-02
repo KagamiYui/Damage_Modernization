@@ -15,7 +15,7 @@ import java.util.Locale;
  * <h2>支持的语法</h2>
  * <pre>
  *   数字        : 1, 0.5, 2.5
- *   变量        : base_attack_power
+ *   变量        : attack_damage
  *   四则运算    : + - * / %
  *   括号        : (1 + percent) * base
  *   一元符号    : -x

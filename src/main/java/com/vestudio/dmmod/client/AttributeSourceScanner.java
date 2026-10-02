@@ -38,12 +38,21 @@ import net.neoforged.fml.ModList;
  */
 public final class AttributeSourceScanner {
 
-    /** 会被扫描来源的体系：只有「有可成长基础值」的那几个才有来源可拆。 */
+    /**
+     * 会被扫描来源的属性。
+     *
+     * <p>前四项是<b>原版属性</b>——本 mod 不再自建「基础值属性」去镜像它们，
+     * 加成以修饰符形式挂上去，因此来源就在那里拆；
+     * 后两项是本 mod 自己的攻击力增量属性，外部 mod 搬进来的
+     * 「近战攻击力 / 近战伤害倍率」会落在上面，同样需要能追溯出处。
+     */
     private static final List<Holder<Attribute>> TRACKED = List.of(
-            DMAttributes.BASE_HEALTH,
-            DMAttributes.BASE_ARMOR,
-            DMAttributes.BASE_ARMOR_TOUGHNESS,
-            DMAttributes.BASE_ATTACK_POWER);
+            Attributes.MAX_HEALTH,
+            Attributes.ARMOR,
+            Attributes.ARMOR_TOUGHNESS,
+            Attributes.ATTACK_DAMAGE,
+            DMAttributes.ATTACK_POWER_PERCENT,
+            DMAttributes.ATTACK_POWER_FLAT);
 
     private AttributeSourceScanner() {
     }
@@ -148,32 +157,22 @@ public final class AttributeSourceScanner {
     }
 
     /**
-     * {@return 追踪的属性是否是原版属性}
+     * {@return 该属性是否会被扫描来源}
      *
      * @param attribute 属性
      */
     public static boolean isVanillaBacked(Holder<Attribute> attribute) {
-        return attribute.equals(DMAttributes.BASE_HEALTH)
-                || attribute.equals(DMAttributes.BASE_ARMOR)
-                || attribute.equals(DMAttributes.BASE_ARMOR_TOUGHNESS)
-                || attribute.equals(DMAttributes.BASE_ATTACK_POWER);
+        return TRACKED.contains(attribute);
     }
 
     /**
      * {@return 对应的原版属性，供对照显示}
      *
-     * @param attribute 本 mod 的基础值属性
+     * <p>追踪的本就是原版属性，因此原样返回。
+     *
+     * @param attribute 属性
      */
     public static Holder<Attribute> vanillaOf(Holder<Attribute> attribute) {
-        if (attribute.equals(DMAttributes.BASE_HEALTH)) {
-            return Attributes.MAX_HEALTH;
-        }
-        if (attribute.equals(DMAttributes.BASE_ARMOR)) {
-            return Attributes.ARMOR;
-        }
-        if (attribute.equals(DMAttributes.BASE_ARMOR_TOUGHNESS)) {
-            return Attributes.ARMOR_TOUGHNESS;
-        }
-        return Attributes.ATTACK_DAMAGE;
+        return attribute;
     }
 }

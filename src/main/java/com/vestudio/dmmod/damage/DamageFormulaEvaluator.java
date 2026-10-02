@@ -23,7 +23,8 @@ import net.minecraft.world.entity.LivingEntity;
  *
  * <h2>变量</h2>
  * <ul>
- *   <li>属性值：{@code base_attack_power}、{@code attack_power_percent} 等，取自攻击者；</li>
+ *   <li>属性值：{@code attack_power_percent}、{@code damage_multiplier} 等，取自攻击者；</li>
+ *   <li>原版数值：{@code attack_damage}（原版攻击伤害总值），取自攻击者；</li>
  *   <li>上下文：{@code is_critical}、{@code raw_damage}、{@code is_environmental}；</li>
  *   <li>全局系数：{@code amplifier_bonus}、{@code multiplier_factor}、{@code crit_bonus}，
  *       来自配置项，使原本独立的调节旋钮仍可被公式引用。</li>
@@ -55,9 +56,9 @@ public final class DamageFormulaEvaluator {
                     net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE);
             evaluator.context("attack_damage", attackDamage);
 
-            // 兼容旧公式：早期数据文件写的是
+            // 兼容旧数据文件：早期写的是
             // {@code base_attack_power * (1 + attack_power_percent) + attack_power_flat}。
-            // 把「基础攻击力」也指向同一个总值，并把那两个加成项归零——
+            // 把 {@code base_attack_power} 也指向同一个总值，并把那两个加成项归零——
             // 它们已经作为修饰符并入总值，若仍按旧式再乘一次就会重复计算。
             evaluator.context("base_attack_power", attackDamage);
             evaluator.context("attack_power_percent", 0.0D);

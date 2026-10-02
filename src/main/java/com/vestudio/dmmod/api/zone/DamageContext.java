@@ -449,10 +449,12 @@ public final class DamageContext {
     }
 
     /**
-     * {@return 本上下文对应的基础攻击力属性值，便于其他 mod 参考}
+     * {@return 攻击者当前的原版攻击伤害，便于其他 mod 参考}
+     *
+     * <p>基础值就是原版 {@code minecraft:attack_damage} 本身，本 mod 不再另设属性。
      */
     public double baseAttackPowerAttribute() {
-        return attributeOf(attacker, DMAttributes.BASE_ATTACK_POWER);
+        return attributeOf(attacker, net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE);
     }
 
     /**

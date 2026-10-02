@@ -3,26 +3,18 @@
   "_notes": [
     "本文件复现了 mod 内置的默认数值与公式，可作为改写的起点。",
     "attributes: 定义属性的默认值、取值范围与显示方式。",
+    "  这里只定义「增量」属性（百分比 / 固定值）。基础值直接取原版属性：",
+    "  攻击力 = minecraft:attack_damage，生命值 = minecraft:max_health，",
+    "  护甲 = minecraft:armor，盔甲韧性 = minecraft:armor_toughness。",
     "  default      固定默认值",
-    "  vanillaSource 默认值取自原版属性（按生物类型），与 default 二选一",
     "zones: 定义乘区（通用的公式单元）。",
-    "  scope       所属体系: damage(伤害) / health(生命值)",
+    "  scope       所属体系: damage(伤害) / taken(承伤)",
     "  priority    执行顺序，越小越先执行",
     "  scale       全局缩放，作用在公式输出之上",
     "  requires    变量白名单：公式只能引用这里声明的变量"
   ],
 
   "attributes": [
-    {
-      "id": "damagemodernization:base_attack_power",
-      "default": 1.0,
-      "min": 0.0,
-      "max": 1000000.0,
-      "display": "plain",
-      "sentiment": "positive",
-      "syncable": true,
-      "comment": "基础攻击力：含武器贡献，空手 1、钻石剑 7"
-    },
     {
       "id": "damagemodernization:attack_power_percent",
       "default": 0.0,
@@ -114,14 +106,6 @@
       "comment": "暴击伤害加成：暴击区内的加算子项，多个来源相加"
     },
     {
-      "id": "damagemodernization:base_health",
-      "vanillaSource": "minecraft:max_health",
-      "min": 0.0,
-      "max": 1000000.0,
-      "display": "plain",
-      "comment": "基础生命值：由生命值乘区算出，默认等于原版血量"
-    },
-    {
       "id": "damagemodernization:health_percent",
       "default": 0.0,
       "min": -1.0,
@@ -138,14 +122,6 @@
       "comment": "固定生命值"
     },
     {
-      "id": "damagemodernization:base_armor",
-      "vanillaSource": "minecraft:armor",
-      "min": 0.0,
-      "max": 1000000.0,
-      "display": "plain",
-      "comment": "基础护甲：由护甲乘区算出，默认等于原版护甲值（含装备）"
-    },
-    {
       "id": "damagemodernization:armor_percent",
       "default": 0.0,
       "min": -1.0,
@@ -160,14 +136,6 @@
       "max": 1000000.0,
       "display": "plain",
       "comment": "固定护甲"
-    },
-    {
-      "id": "damagemodernization:base_armor_toughness",
-      "vanillaSource": "minecraft:armor_toughness",
-      "min": 0.0,
-      "max": 1000000.0,
-      "display": "plain",
-      "comment": "基础盔甲韧性：由韧性乘区算出，默认等于原版韧性值（含装备）"
     },
     {
       "id": "damagemodernization:armor_toughness_percent",
@@ -225,57 +193,6 @@
         "crit_damage_taken_reduction"
       ],
       "comment": "暴击区：不暴击时为 1。暴击倍率由 crit_damage（倍率本体）与 crit_damage_bonus、crit_bonus（加算子项）相加而成，因此多个爆伤来源彼此相加而非相乘。受害者的暴击伤害减免在区内直接削减增益（倍率−1）那部分；下限 1 保证暴击不会比不暴击更低"
-    },
-    {
-      "scope": "health",
-      "id": "base_scale",
-      "priority": 0,
-      "scale": 1.0,
-      "formula": "base_health * health_scale",
-      "requires": [
-        "base_health",
-        "health_scale"
-      ],
-      "comment": "基础生命值缩放区：base_health 已含装备等加成，再乘以全局缩放系数"
-    },
-    {
-      "scope": "health",
-      "id": "bonus",
-      "priority": 500,
-      "scale": 1.0,
-      "formula": "base_health * (1 + health_percent) + health_flat",
-      "requires": [
-        "base_health",
-        "health_percent",
-        "health_flat"
-      ],
-      "comment": "生命值提升区：百分比与固定值"
-    },
-    {
-      "scope": "armor",
-      "id": "armor",
-      "priority": 0,
-      "scale": 1.0,
-      "formula": "base_armor * (1 + armor_percent) + armor_flat",
-      "requires": [
-        "base_armor",
-        "armor_percent",
-        "armor_flat"
-      ],
-      "comment": "护甲合成区：base_armor 已含装备等加成，再叠加百分比与固定值，结果以修饰符写回原版 armor。注意只改数值，不动原版护甲减伤公式"
-    },
-    {
-      "scope": "armor",
-      "id": "toughness",
-      "priority": 0,
-      "scale": 1.0,
-      "formula": "base_armor_toughness * (1 + armor_toughness_percent) + armor_toughness_flat",
-      "requires": [
-        "base_armor_toughness",
-        "armor_toughness_percent",
-        "armor_toughness_flat"
-      ],
-      "comment": "盔甲韧性合成区：与护甲同一套逻辑，结果写回原版 armor_toughness"
     },
     {
       "scope": "taken",

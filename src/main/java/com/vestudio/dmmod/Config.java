@@ -139,11 +139,10 @@ public final class Config {
 
     public static final ModConfigSpec.DoubleValue HEALTH_SCALE = BUILDER
             .comment(
-                    "基础生命值的全局缩放，作用于所有生物。",
-                    "1.0 表示保持原版血量（默认）；1.5 表示所有生物基础生命值 +50%。",
-                    "这是独立的缩放乘区，与「生命值百分比提升」互不影响：",
-                    "  基础生命值 = 原版血量 × 本系数",
-                    "  最终生命值 = 基础生命值 × (1 + 生命值百分比) + 固定生命值")
+                    "生命值的全局缩放，作用于所有生物。",
+                    "1.0 表示保持原版血量（默认）；1.5 表示所有生物生命值 +50%。",
+                    "实现方式：给原版 max_health 挂一个「按基础值乘算」的修饰符，",
+                    "与「生命值百分比提升」属性互相独立、彼此叠加。")
             .defineInRange("health.baseScale", 1.0D, 0.0D, 1000.0D);
 
     // ==================================================================
@@ -161,6 +160,76 @@ public final class Config {
                     "是否在启动时打印已注册的伤害乘区列表。",
                     "便于确认其他 mod 的乘区是否成功挂载。")
             .define("debug.logZoneRegistration", true);
+
+    // ==================================================================
+    // 兼容性：基础值归属
+    // ==================================================================
+    //
+    // 属性面板会把一个数值拆成「基础值 + 变化值」。判断某个来源该算哪一边，
+    // 由下面这一对配置决定。这样接入新的 mod 时不需要改代码，
+    // 只需要在名单里加一行。
+
+    /** 黑名单模式：名单内的算变化值，其余算基础值。 */
+    public static final String MODE_BLACKLIST = "blacklist";
+
+    /** 白名单模式：只有名单内的算基础值，其余算变化值。 */
+    public static final String MODE_WHITELIST = "whitelist";
+
+    public static final ModConfigSpec.ConfigValue<String> BASE_VALUE_MODE = BUILDER
+            .comment(
+                    "决定「基础值」怎么归类——属性面板里加号前面那一段。",
+                    "blacklist = 名单内的算「变化值」，其余算「基础值」（默认）；",
+                    "whitelist = 只有名单内的算「基础值」，其余算「变化值」。",
+                    "本 mod 自己的加成永远算变化值，不受这里影响。")
+            .define("compatibility.baseValueMode", MODE_BLACKLIST);
+
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> BASE_VALUE_NAMESPACES = BUILDER
+            .comment(
+                    "命名空间名单，配合 baseValueMode 使用。",
+                    "默认把 astralsorcery 与 zifeng_s_custom_skill_tree 列进黑名单：",
+                    "这两个 mod 的加成算「变化值」，不进基础值。",
+                    "想让别的 mod 的加成也算变化值，就在这里加它的命名空间；",
+                    "白名单模式下则通常只写 minecraft（只认原版贡献）。")
+            // 第 3 个参数是「列表为空时配置界面预填的占位元素」，
+            // NeoForge 要求显式给出，空字符串即可。
+            .<String>defineListAllowEmpty("compatibility.namespaces",
+                    List.of("astralsorcery", "zifeng_s_custom_skill_tree"), () -> "",
+                    o -> o instanceof String);
+
+    /**
+     * 判断某个命名空间是否算作「基础值」。
+     *
+     * <p>本 mod 自己的加成<b>永远</b>算变化值，与配置无关——
+     * 否则「我们的加成」会被混进基础值里，面板就失去了拆分的意义。
+     *
+     * @param namespace 修饰符的命名空间
+     * @return 是否算基础值
+     */
+    public static boolean isBaseValueNamespace(String namespace) {
+        if (DamageModernization.MODID.equals(namespace)) {
+            return false;
+        }
+
+        String mode;
+        List<? extends String> namespaces;
+        try {
+            mode = BASE_VALUE_MODE.get();
+            namespaces = BASE_VALUE_NAMESPACES.get();
+        } catch (Exception e) {
+            // 配置尚未加载：退回「除我们之外都算基础值」。
+            return true;
+        }
+
+        // 玩家手写配置文件时容易多打空格或留空行，这里统一清理后再比对。
+        boolean listed = false;
+        for (String entry : namespaces) {
+            if (entry != null && entry.trim().equals(namespace)) {
+                listed = true;
+                break;
+            }
+        }
+        return MODE_WHITELIST.equalsIgnoreCase(mode == null ? "" : mode.trim()) ? listed : !listed;
+    }
 
     /** 构建好的配置规格，供 mod 主类注册。 */
     static final ModConfigSpec SPEC = BUILDER.build();

@@ -1,7 +1,6 @@
 {
   "_comment": "Damage_Modernization —— 四乘区伤害系统（简体中文）",
 
-  "attribute.damagemodernization.base_attack_power": "基础攻击力",
   "attribute.damagemodernization.attack_power_percent": "攻击力百分比提升",
   "attribute.damagemodernization.attack_power_flat": "固定攻击力",
   "attribute.damagemodernization.damage_amplifier": "伤害提升",
@@ -10,16 +9,13 @@
   "attribute.damagemodernization.crit_damage": "暴击伤害",
   "attribute.damagemodernization.crit_damage_bonus": "暴击伤害加成",
   "attribute.damagemodernization.crit_damage_taken_reduction": "受到暴击伤害减免",
-  "attribute.damagemodernization.base_health": "生命值",
   "attribute.damagemodernization.health_percent": "生命值百分比提升",
   "attribute.damagemodernization.health_flat": "固定生命值",
   "attribute.damagemodernization.physical_amplifier": "物理伤害提升",
   "attribute.damagemodernization.magic_amplifier": "魔法伤害提升",
   "attribute.damagemodernization.physical_resistance": "物理伤害减免",
-  "attribute.damagemodernization.base_armor": "护甲",
   "attribute.damagemodernization.armor_percent": "护甲百分比提升",
   "attribute.damagemodernization.armor_flat": "固定护甲",
-  "attribute.damagemodernization.base_armor_toughness": "盔甲韧性",
   "attribute.damagemodernization.armor_toughness_percent": "盔甲韧性百分比提升",
   "attribute.damagemodernization.armor_toughness_flat": "固定盔甲韧性",
 
@@ -32,8 +28,9 @@
   "gui.damagemodernization.stats_panel.offense": "输出",
   "gui.damagemodernization.stats_panel.tab_panel": "属性面板",
   "gui.damagemodernization.stats_panel.tab_sources": "属性来源",
+  "gui.damagemodernization.stats_panel.sources_by_attribute": "按属性",
+  "gui.damagemodernization.stats_panel.sources_by_source": "按来源",
   "gui.damagemodernization.stats_panel.source_base": "原版基础值",
-  "gui.damagemodernization.stats_panel.hint": "按 K 或 ESC 关闭",
   "gui.damagemodernization.attack_power_zone": "攻击力",
 
   "damagemodernization.configuration.title": "伤害现代化 配置",

@@ -62,19 +62,20 @@ public final class StatFormat {
     }
 
     /**
-     * 攻击力区的数值文本：{@code 结果（基础攻击力 + 非基础攻击力）}。
+     * 攻击力区的数值文本：{@code 结果（原版攻击伤害 + 加成）}。
      *
-     * <p><b>基础攻击力包含武器贡献</b>：武器的攻击伤害会被换算并计入基础攻击力
-     * （空手 1、钻石剑 7），因此这里传入的 {@code base} 是<b>手持当前武器时</b>
-     * 的基础攻击力，而不是那个不含武器的 1。
+     * <p>基础值就是原版 {@code minecraft:attack_damage} 的总值，
+     * <b>武器贡献已在其中</b>（空手 1、钻石剑 7），因此 {@code base} 是
+     * <b>手持当前武器时</b>的原版攻击伤害，而不是空手的 1。
      *
      * @param total 攻击力区结果
-     * @param base  基础攻击力（含武器）
-     * @param bonus 非基础攻击力（结果 − 基础攻击力）
+     * @param base  原版攻击伤害（含武器）
+     * @param bonus 非基础值部分（结果 − 基础值）
      * @return 排版后的文本
      */
     public static String attackPowerValue(double total, double base, double bonus) {
-        return basePlusBonus(DMAttributes.BASE_ATTACK_POWER, total, base, bonus);
+        return basePlusBonus(
+                net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE, total, base, bonus);
     }
 
     /**

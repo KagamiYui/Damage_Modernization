@@ -203,55 +203,26 @@ public final class DamageEventHandler {
         }
     }
 
-    /**
-     * 装备变化时立即刷新基础攻击力。
-     *
-     * <p>否则镜像只在<b>下一次伤害结算</b>时才更新，期间
-     * {@code base_attack_power} 会保留上一把武器的数值——
-     * 属性面板会显示陈旧数据，切到空手后也可能读到上一把武器的攻击力。
-     *
-     * <p>只在服务端执行：数值由服务端权威计算并同步给客户端，
-     * 避免两端各自维护一份镜像状态而产生分歧。
-     *
-     * @param event 装备变化事件
-     */
-    @SubscribeEvent
-    public static void onEquipmentChange(net.neoforged.neoforge.event.entity.living.LivingEquipmentChangeEvent event) {
-        if (!DamagePipeline.isModelEnabled()) {
-            return;
-        }
-
-        LivingEntity entity = event.getEntity();
-        if (entity.level().isClientSide()) {
-            return;
-        }
-
-        // 攻击力已改为直接取原版 attack_damage：
-        // 装备变化时原版会自行重算，不再需要手动推导镜像。
-    }
-
     /** 刷新间隔：20 tick = 1 秒。 */
     private static final int REFRESH_INTERVAL_TICKS = 20;
 
     /**
-     * 服务端每秒刷新一次所有在线玩家的基础攻击力。
+     * 服务端每秒刷新一次所有在线玩家的属性加成。
      *
      * <h2>为什么不能只依赖事件</h2>
-     * 镜像（把原版攻击伤害的修饰符搬到基础攻击力上）原本只在
-     * 「伤害结算」与「装备变化事件」时更新。前者意味着<b>必须打中目标</b>
-     * 才会刷新，后者在装备属性结算流程中触发、时机偏早，
-     * 都可能让 {@code base_attack_power} 停留在旧值——
-     * 属性面板因此要等到「换物品」或「攻击过」之后才更新。
+     * 加成原本只在「伤害结算」与「装备变化事件」时更新。前者意味着
+     * <b>必须打中目标</b>才会刷新，后者在装备属性结算流程中触发、时机偏早，
+     * 都可能让加成停留在旧值——属性面板因此要等到「换物品」或「攻击过」之后才更新。
      *
-     * <p>改由服务端<b>每秒</b>权威刷新后，数值始终跟得上当前武器，
+     * <p>改由服务端<b>每秒</b>权威刷新后，数值始终跟得上当前状态，
      * 再经原有的属性同步下发到客户端，面板即可及时反映。
      *
      * <h2>为什么不每 tick 刷新</h2>
-     * 镜像涉及修饰符的增删与属性脏标记，每 tick 执行属于无谓开销；
+     * 刷新涉及修饰符的增删与属性脏标记，每 tick 执行属于无谓开销；
      * 玩家的换装与状态变化远不到每 tick 的频率，
      * 1 秒的延迟对属性面板而言已足够，也避免了频繁的网络同步。
      *
-     * <p>刷新是幂等的（先按前缀清除旧镜像再重建），重复调用安全。
+     * <p>刷新是幂等的（固定 id，先移除再添加），重复调用安全。
      *
      * @param event 服务端 tick 事件
      */
@@ -282,16 +253,12 @@ public final class DamageEventHandler {
     private static void logArmorState(net.minecraft.server.level.ServerPlayer player) {
         var vanilla = player.getAttribute(
                 net.minecraft.world.entity.ai.attributes.Attributes.ARMOR);
-        var base = player.getAttribute(DMAttributes.BASE_ARMOR);
         DamageModernization.LOGGER.info(
-                "[DM] raw armor state (server): vanilla_armor base={} total={}, "
-                        + "base_armor base={} total={} modifiers={}, "
+                "[DM] raw armor state (server): vanilla_armor base={} total={} modifiers={}, "
                         + "armor_percent={}, armor_flat={}",
                 vanilla == null ? -1.0D : vanilla.getBaseValue(),
                 vanilla == null ? -1.0D : vanilla.getValue(),
-                base == null ? -1.0D : base.getBaseValue(),
-                base == null ? -1.0D : base.getValue(),
-                base == null ? -1 : base.getModifiers().size(),
+                vanilla == null ? -1 : vanilla.getModifiers().size(),
                 player.getAttributeValue(DMAttributes.ARMOR_PERCENT),
                 player.getAttributeValue(DMAttributes.ARMOR_FLAT));
     }

@@ -18,11 +18,11 @@ import net.minecraft.world.entity.ai.attributes.AttributeInstance;
  * <h2>变量来源</h2>
  * 公式可用的变量取自三处，按优先级从低到高：
  * <ol>
- *   <li><b>属性值</b>：属性 ID 去掉命名空间后的名字，如 {@code base_attack_power}。
+ *   <li><b>属性值</b>：属性 ID 去掉命名空间后的名字，如 {@code attack_power_percent}。
  *       从攻击者与受害者身上读取。</li>
  *   <li><b>上下文变量</b>：由调用方注入的当次结算信息，
- *       如 {@code is_critical}、{@code vanilla_max_health}。</li>
- *   <li><b>输出变量</b>：本体系内<b>前面</b>已求值乘区的输出，如 {@code base_health}。</li>
+ *       如 {@code is_critical}、{@code attack_damage}。</li>
+ *   <li><b>输出变量</b>：本体系内<b>前面</b>已求值乘区的输出，如 {@code attack_power}。</li>
  * </ol>
  *
  * <p>本类不使用任何静态可变状态，每个实例针对一次结算创建，

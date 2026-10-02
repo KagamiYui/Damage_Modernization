@@ -129,7 +129,7 @@ public final class AttackPowerTooltip {
      * @return 该行的组件
      */
     private static Component buildLine(double value, TooltipFlag flag) {
-        Holder<Attribute> attribute = DMAttributes.BASE_ATTACK_POWER;
+        Holder<Attribute> attribute = net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE;
 
         // 传 null 表示显示数值本身，与属性面板保持一致。
         Component valueText = attribute.value().toValueComponent(null, value, flag);

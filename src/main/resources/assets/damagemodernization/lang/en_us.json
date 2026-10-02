@@ -1,7 +1,6 @@
 {
   "_comment": "Damage_Modernization —— 四乘区伤害系统",
 
-  "attribute.damagemodernization.base_attack_power": "Base Attack Power",
   "attribute.damagemodernization.attack_power_percent": "Attack Power Bonus",
   "attribute.damagemodernization.attack_power_flat": "Flat Attack Power",
   "attribute.damagemodernization.damage_amplifier": "Damage Amplification",
@@ -10,16 +9,13 @@
   "attribute.damagemodernization.crit_damage": "Critical Damage",
   "attribute.damagemodernization.crit_damage_bonus": "Critical Damage Bonus",
   "attribute.damagemodernization.crit_damage_taken_reduction": "Critical Damage Taken Reduction",
-  "attribute.damagemodernization.base_health": "Health",
   "attribute.damagemodernization.health_percent": "Health Bonus",
   "attribute.damagemodernization.health_flat": "Flat Health",
   "attribute.damagemodernization.physical_amplifier": "Physical Damage Bonus",
   "attribute.damagemodernization.magic_amplifier": "Magic Damage Bonus",
   "attribute.damagemodernization.physical_resistance": "Physical Damage Reduction",
-  "attribute.damagemodernization.base_armor": "Armor",
   "attribute.damagemodernization.armor_percent": "Armor Bonus",
   "attribute.damagemodernization.armor_flat": "Flat Armor",
-  "attribute.damagemodernization.base_armor_toughness": "Armor Toughness",
   "attribute.damagemodernization.armor_toughness_percent": "Armor Toughness Bonus",
   "attribute.damagemodernization.armor_toughness_flat": "Flat Armor Toughness",
 
@@ -32,8 +28,9 @@
   "gui.damagemodernization.stats_panel.offense": "Offense",
   "gui.damagemodernization.stats_panel.tab_panel": "Attributes",
   "gui.damagemodernization.stats_panel.tab_sources": "Sources",
+  "gui.damagemodernization.stats_panel.sources_by_attribute": "By Attribute",
+  "gui.damagemodernization.stats_panel.sources_by_source": "By Source",
   "gui.damagemodernization.stats_panel.source_base": "Vanilla base",
-  "gui.damagemodernization.stats_panel.hint": "Press K or ESC to close",
   "gui.damagemodernization.attack_power_zone": "Attack Power",
 
   "damagemodernization.configuration.title": "Damage_Modernization Configs",

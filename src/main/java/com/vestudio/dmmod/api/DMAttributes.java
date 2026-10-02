@@ -21,16 +21,19 @@ import net.neoforged.neoforge.registries.DeferredRegister;
  *
  * <p>其中「攻击力区」本身是一次独立运算：
  * <pre>
- *   攻击力区 = 基础攻击力 × (1 + 攻击力百分比提升) + 固定攻击力
+ *   攻击力区 = 原版攻击伤害 × (1 + 攻击力百分比提升) + 固定攻击力
  * </pre>
  *
  * <h2>关于「基础攻击力」</h2>
- * 原版的 {@code generic.attack_damage} 语义是「最终伤害值」，直接参与扣血。
- * 本 mod 把它重写为「基础攻击力」：它是一个<b>基准数值</b>，本身不再等同于最终伤害，
- * 而是要经过四乘区运算后才成为伤害。后续所有「百分比提升攻击力」都以这个数值为基准。
+ * <b>基础值就是原版的数值本身</b>——攻击力取 {@code minecraft:attack_damage}，
+ * 生命值取 {@code minecraft:max_health}，护甲取 {@code minecraft:armor}，
+ * 韧性取 {@code minecraft:armor_toughness}。
+ * 本 mod 不再自建一套「基础值属性」去镜像原版，属性层只负责把
+ * 「百分比 / 固定值」翻译成原版修饰符（见 {@code AttributeBonusApplier}），
+ * 原版属性算出来的结果天然就是「基础值 + 变化值」。
  *
- * <p>为了保持原版手感，基础攻击力的默认值与原版攻击伤害一致：
- * 空手 = 1.0，石剑 = 4.0，钻石剑 = 6.0，下界合金剑 = 7.0。
+ * <p>因此本类只定义<b>增量</b>属性（百分比与固定值），
+ * 百分比提升的基准始终是原版那个数值。
  *
  * @see com.vestudio.dmmod.damage.DamageZones 四乘区的具体运算
  */
@@ -41,22 +44,7 @@ public final class DMAttributes {
             DeferredRegister.create(Registries.ATTRIBUTE, DamageModernization.MODID);
 
     /**
-     * 基础攻击力：一切攻击力计算的基准。
-     *
-     * <p>默认 1.0（对应原版空手攻击力）。
-     * 武器通过 AttributeModifier 在该值之上叠加，从而保持「空手 1 + 剑 3 = 4」这样的原版数值关系。
-     *
-     * <p>注意：这不是最终伤害。真正的伤害要经过四乘区运算。
-     */
-    public static final Holder<Attribute> BASE_ATTACK_POWER = ATTRIBUTES.register(
-            "base_attack_power",
-            () -> new RangedAttribute(
-                    "attribute.damagemodernization.base_attack_power",
-                    1.0D, 0.0D, 1_000_000.0D)
-                    .setSyncable(true));
-
-    /**
-     * 固定攻击力：直接加在「基础攻击力 × (1 + 百分比)」之上的固定值。
+     * 固定攻击力：直接加在「原版攻击伤害 × (1 + 百分比)」之上的固定值。
      *
      * <p>默认 0.0。
      */
@@ -68,13 +56,13 @@ public final class DMAttributes {
                     .setSyncable(true));
 
     /**
-     * 攻击力百分比提升：作用于「基础攻击力」的百分比加成。
+     * 攻击力百分比提升：作用于<b>原版攻击伤害</b>的百分比加成。
      *
      * <p>采用 {@link PercentageAttribute}，因此 0.1 会被显示为 +10%。
      * 默认 0.0（即 +0%）。
      *
-     * <p>这是你要求的「后续百分比提升攻击力以基础攻击力为准」的落地方式：
-     * 提升的是基础攻击力，而不是原版那种对最终伤害的模糊加成。
+     * <p>提升的基准是原版 {@code minecraft:attack_damage} 的总值，
+     * 因此武器、药水、其他 mod 提供的攻击力都会被一并放大。
      */
     public static final Holder<Attribute> ATTACK_POWER_PERCENT = ATTRIBUTES.register(
             "attack_power_percent",
@@ -146,25 +134,12 @@ public final class DMAttributes {
     // 生命值
     // ==================================================================
     //
-    // 与攻击力同样的思路：原版 max_health 的语义是「最终血量」，
-    // 这里新增 base_health 承载「基础生命值」，再叠加百分比与固定加成，
-    // 算出的结果写回 max_health。
+    // 与攻击力同样的思路：原版 max_health 就是「基础生命值」，
+    // 这里只定义百分比与固定值两个<b>增量</b>属性，
+    // 由 AttributeBonusApplier 翻译成原版修饰符写回 max_health。
 
     /**
-     * 基础生命值：生命值计算的基准，包含装备等提供的生命加成。
-     *
-     * <p>默认 20.0（与原版玩家血量一致）。
-     * 可成长的百分比加成作用于该值，而非直接作用于最终血量。
-     */
-    public static final Holder<Attribute> BASE_HEALTH = ATTRIBUTES.register(
-            "base_health",
-            () -> new RangedAttribute(
-                    "attribute.damagemodernization.base_health",
-                    20.0D, 0.0D, 1_000_000.0D)
-                    .setSyncable(true));
-
-    /**
-     * 生命值百分比提升：作用于基础生命值的百分比加成。
+     * 生命值百分比提升：作用于原版最大生命值的百分比加成。
      *
      * <p>采用 {@link PercentDisplayAttribute}，因此 0.1 显示为 +10%。默认 0.0。
      */
@@ -271,26 +246,14 @@ public final class DMAttributes {
     // 护甲与盔甲韧性
     // ==================================================================
     //
-    // 与生命值同一套思路：原版 armor / armor_toughness 的语义是「最终值」，
-    // 这里新增 base_armor / base_armor_toughness 承载「基础值」，
-    // 再在其上叠加百分比与固定加成，算出的结果以修饰符写回原版属性。
+    // 与生命值同一套思路：原版 armor / armor_toughness 就是「基础值」，
+    // 这里只定义百分比与固定值增量，由 AttributeBonusApplier
+    // 翻译成原版修饰符写回。
     //
     // 注意：我们只改这两个属性的<b>数值</b>，不碰原版的护甲减伤公式。
 
     /**
-     * 基础护甲：护甲计算的基准，含装备等提供的护甲。
-     *
-     * <p>默认 0.0（裸装），实际注入时按生物类型取原版 {@code minecraft:armor} 的默认值。
-     */
-    public static final Holder<Attribute> BASE_ARMOR = ATTRIBUTES.register(
-            "base_armor",
-            () -> new RangedAttribute(
-                    "attribute.damagemodernization.base_armor",
-                    0.0D, 0.0D, 1_000_000.0D)
-                    .setSyncable(true));
-
-    /**
-     * 护甲百分比提升：作用于基础护甲。
+     * 护甲百分比提升：作用于原版护甲值。
      *
      * <p>采用 {@link PercentDisplayAttribute}，0.1 显示为 +10%。默认 0.0。
      */
@@ -302,7 +265,7 @@ public final class DMAttributes {
                     .setSyncable(true));
 
     /**
-     * 固定护甲：直接加在「基础护甲 × (1 + 百分比)」之上。
+     * 固定护甲：直接加在「原版护甲 × (1 + 百分比)」之上。
      */
     public static final Holder<Attribute> ARMOR_FLAT = ATTRIBUTES.register(
             "armor_flat",
@@ -312,19 +275,7 @@ public final class DMAttributes {
                     .setSyncable(true));
 
     /**
-     * 基础盔甲韧性：韧性计算的基准，含装备等提供的韧性。
-     *
-     * <p>默认 0.0，实际注入时按生物类型取原版 {@code minecraft:armor_toughness} 的默认值。
-     */
-    public static final Holder<Attribute> BASE_ARMOR_TOUGHNESS = ATTRIBUTES.register(
-            "base_armor_toughness",
-            () -> new RangedAttribute(
-                    "attribute.damagemodernization.base_armor_toughness",
-                    0.0D, 0.0D, 1_000_000.0D)
-                    .setSyncable(true));
-
-    /**
-     * 盔甲韧性百分比提升：作用于基础盔甲韧性。
+     * 盔甲韧性百分比提升：作用于原版盔甲韧性。
      */
     public static final Holder<Attribute> ARMOR_TOUGHNESS_PERCENT = ATTRIBUTES.register(
             "armor_toughness_percent",
@@ -334,7 +285,7 @@ public final class DMAttributes {
                     .setSyncable(true));
 
     /**
-     * 固定盔甲韧性：直接加在「基础盔甲韧性 × (1 + 百分比)」之上。
+     * 固定盔甲韧性：直接加在「原版盔甲韧性 × (1 + 百分比)」之上。
      */
     public static final Holder<Attribute> ARMOR_TOUGHNESS_FLAT = ATTRIBUTES.register(
             "armor_toughness_flat",
@@ -351,7 +302,7 @@ public final class DMAttributes {
      * {@return 公式中引用某个属性时使用的变量名}
      *
      * <p>变量名即属性 ID 的路径部分，例如
-     * {@code damagemodernization:base_attack_power} → {@code base_attack_power}。
+     * {@code damagemodernization:attack_power_percent} → {@code attack_power_percent}。
      * 这样数据文件里的公式与属性定义能自然对应。
      *
      * @param attribute 属性
@@ -380,7 +331,6 @@ public final class DMAttributes {
      */
     public static List<Holder<Attribute>> attackAttributes() {
         return List.of(
-                BASE_ATTACK_POWER,
                 ATTACK_POWER_PERCENT,
                 ATTACK_POWER_FLAT,
                 DAMAGE_AMPLIFIER,
@@ -399,7 +349,6 @@ public final class DMAttributes {
         return List.of(
                 PHYSICAL_RESISTANCE,
                 CRIT_DAMAGE_TAKEN_REDUCTION,
-                BASE_HEALTH,
                 HEALTH_PERCENT,
                 HEALTH_FLAT);
     }
@@ -408,21 +357,19 @@ public final class DMAttributes {
      * {@return 生命值相关的属性列表，供公式注入变量}
      */
     public static List<Holder<Attribute>> healthAttributes() {
-        return List.of(BASE_HEALTH, HEALTH_PERCENT, HEALTH_FLAT);
+        return List.of(HEALTH_PERCENT, HEALTH_FLAT);
     }
 
     /**
      * {@return 护甲体系相关的属性列表，供公式注入变量}
      *
-     * <p>护甲与盔甲韧性共用一份列表：两者的公式各自只引用自己那三个变量，
+     * <p>护甲与盔甲韧性共用一份列表：两者的公式各自只引用自己那几个变量，
      * 多余的变量注入进去不会被读到，也就不影响结果。
      */
     public static List<Holder<Attribute>> armorAttributes() {
         return List.of(
-                BASE_ARMOR,
                 ARMOR_PERCENT,
                 ARMOR_FLAT,
-                BASE_ARMOR_TOUGHNESS,
                 ARMOR_TOUGHNESS_PERCENT,
                 ARMOR_TOUGHNESS_FLAT);
     }
