@@ -212,6 +212,41 @@ public final class DamagePipeline {
     }
 
     /**
+     * 构造一次「投射物命中」的伤害上下文。
+     *
+     * <h2>为什么攻击力区不用发射者的攻击伤害</h2>
+     * 投射物有自己的基础伤害：弓按蓄力、三叉戟按投掷伤害、火球按它自己的数值。
+     * 直接套用发射者的 {@code attack_damage} 会把「骷髅的箭」变成「骷髅的拳击」。
+     *
+     * <p>所以攻击力区仍取投射物自身的伤害，但发射者的
+     * {@code attack_power_percent} / {@code attack_power_flat} 会作为加成叠加，
+     * 暴击、伤害提升、伤害倍率也都从发射者身上读——
+     * 这样「+20% 攻击力」对投掷出去的三叉戟同样有效。
+     *
+     * @param source          伤害来源
+     * @param attacker        发射者
+     * @param victim          受害实体
+     * @param projectileDamage 投射物自身的基础伤害
+     * @param crit            是否暴击
+     * @return 新建的上下文（尚未结算）
+     */
+    public static DamageContext createProjectileContext(DamageSource source,
+                                                        LivingEntity attacker,
+                                                        LivingEntity victim,
+                                                        double projectileDamage,
+                                                        boolean crit) {
+        return new DamageContext(
+                source, attacker, victim, false, false,
+                projectileDamage,
+                attacker.getAttributeValue(com.vestudio.dmmod.api.DMAttributes.ATTACK_POWER_PERCENT),
+                attacker.getAttributeValue(com.vestudio.dmmod.api.DMAttributes.ATTACK_POWER_FLAT),
+                attacker.getAttributeValue(com.vestudio.dmmod.api.DMAttributes.DAMAGE_AMPLIFIER),
+                attacker.getAttributeValue(com.vestudio.dmmod.api.DMAttributes.DAMAGE_MULTIPLIER),
+                crit,
+                attacker.getAttributeValue(com.vestudio.dmmod.api.DMAttributes.CRIT_DAMAGE));
+    }
+
+    /**
      * 构造一次「环境伤害」的伤害上下文。
      *
      * @param source    伤害来源

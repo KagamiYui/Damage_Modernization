@@ -48,10 +48,15 @@ public final class DamageFormulaEvaluator {
         // 攻击者的属性（环境伤害没有攻击者，此时全部注入 0）。
         evaluator.attributes(attacker, DMAttributes.attackAttributes());
 
-        // 攻击力区直接取原版攻击伤害的<b>总值</b>：武器加成、药水、以及我们的
+        // 攻击力区。
+        //
+        // 近战：直接取原版攻击伤害的<b>总值</b>——武器加成、药水、以及我们的
         // 百分比/固定值加成全都以修饰符形式挂在它上面，原版已经算好了。
         // 因此不再需要自己维护一份「基础攻击力」，也不需要那个镜像步骤。
-        if (attacker != null) {
+        //
+        // 投射物与环境伤害：攻击力区由上下文给定（投射物自身的基础伤害 /
+        // 原始伤害），上下文里的百分比与固定值还没应用，这里手动合成一次。
+        if (attacker != null && context.isMeleeAttack()) {
             double attackDamage = DamageContext.attributeOf(attacker,
                     net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE);
             evaluator.context("attack_damage", attackDamage);
@@ -61,6 +66,17 @@ public final class DamageFormulaEvaluator {
             // 把 {@code base_attack_power} 也指向同一个总值，并把那两个加成项归零——
             // 它们已经作为修饰符并入总值，若仍按旧式再乘一次就会重复计算。
             evaluator.context("base_attack_power", attackDamage);
+            evaluator.context("attack_power_percent", 0.0D);
+            evaluator.context("attack_power_flat", 0.0D);
+        } else {
+            // 上下文给定的攻击力区。
+            //
+            // 必须注入 {@code attack_damage}：默认公式的攻击力区引用的就是它，
+            // 缺了它会因「变量未提供」而把<b>整个攻击力区按 1.0 跳过</b>。
+            double base = context.baseAttackPower();
+            double zone = base * (1.0D + context.attackPowerPercent()) + context.attackPowerFlat();
+            evaluator.context("attack_damage", zone);
+            evaluator.context("base_attack_power", zone);
             evaluator.context("attack_power_percent", 0.0D);
             evaluator.context("attack_power_flat", 0.0D);
         }

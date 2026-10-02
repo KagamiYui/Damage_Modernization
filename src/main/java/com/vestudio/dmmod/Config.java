@@ -36,6 +36,16 @@ public final class Config {
                     "关闭后环境伤害保持原版数值。")
             .define("applyZonesToEnvironmentalDamage", true);
 
+    public static final ModConfigSpec.BooleanValue PROJECTILES_USE_ATTACKER_BONUSES = BUILDER
+            .comment(
+                    "是否让投射物（箭、投掷的三叉戟、火球等）继承发射者的攻击力加成。",
+                    "投射物的「攻击力区」仍是它自己的基础伤害（弓的蓄力、三叉戟的投掷伤害），",
+                    "但会再乘上发射者的「攻击力百分比提升 / 固定攻击力」，",
+                    "并按发射者的暴击率与暴击伤害掷骰。",
+                    "注意这对所有生物一视同仁：怪物射出的箭同样会按它的暴击率掷骰。",
+                    "关闭后投射物只走伤害提升/伤害倍率乘区，攻击力与暴击保持原版。")
+            .define("projectilesUseAttackerBonuses", true);
+
     // ==================================================================
     // 攻击力区
     // ==================================================================

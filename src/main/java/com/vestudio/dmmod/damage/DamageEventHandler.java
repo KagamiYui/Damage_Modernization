@@ -192,6 +192,26 @@ public final class DamageEventHandler {
             return;
         }
 
+        // 投射物：发射者是生物，但直接来源是弹射物本身。
+        //
+        // 原版给投射物的是<b>它自己的</b>基础伤害（弓的蓄力、三叉戟的投掷伤害），
+        // 所以攻击力区仍取该数值，但百分比/固定值攻击力、暴击、伤害提升与倍率
+        // 都按发射者的属性来算——这样「+20% 攻击力」对投掷的三叉戟同样生效。
+        if (attackerEntity instanceof LivingEntity shooter
+                && event.getSource().getDirectEntity()
+                instanceof net.minecraft.world.entity.projectile.Projectile
+                && Config.PROJECTILES_USE_ATTACKER_BONUSES.getAsBoolean()) {
+
+            DamageContext ctx = DamagePipeline.createProjectileContext(
+                    event.getSource(), shooter, victim,
+                    event.getOriginalAmount(), rollCrit(shooter));
+
+            double finalDamage = DamagePipeline.compose(ctx);
+
+            applyDamage(event, finalDamage, ctx, "projectile");
+            return;
+        }
+
         // 环境伤害：以原始伤害直接充当攻击力区，但仍经过伤害提升/倍率/暴击乘区，
         // 使「所有伤害统一走四乘区」这一目标成立。
         if (Config.APPLY_ZONES_TO_ENVIRONMENTAL_DAMAGE.getAsBoolean()) {
